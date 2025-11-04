@@ -1,29 +1,33 @@
 {
   "expo": {
     "name": "Kabod",
-    "slug": "Kabod",
+    "slug": "kabod",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "icon": "./assets/images/Kabod.png",
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "image": "./assets/images/Kabod.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#87CEEB"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "splash": {
+        "image": "./assets/images/Kabod.png",
+        "resizeMode": "cover",
+        "backgroundColor": "#87CEEB"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/Kabod.png",
+        "backgroundColor": "#87CEEB"
       },
-      "edgeToEdgeEnabled": true
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+      "splash": {
+        "image": "./assets/images/Kabod.png",
+        "resizeMode": "cover",
+        "backgroundColor": "#87CEEB"
+      }
     }
   }
 }
