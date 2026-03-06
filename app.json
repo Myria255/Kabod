@@ -1,33 +1,46 @@
 {
   "expo": {
-    "name": "Kabod",
-    "slug": "kabod",
+    "name": "KabodV1",
+    "slug": "KabodV1",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/Kabod.png",
-    "splash": {
-      "image": "./assets/images/Kabod.png",
-      "resizeMode": "cover",
-      "backgroundColor": "#87CEEB"
-    },
+    "scheme": "kabodv1",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "splash": {
-        "image": "./assets/images/Kabod.png",
-        "resizeMode": "cover",
-        "backgroundColor": "#87CEEB"
-      }
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Kabod.png",
-        "backgroundColor": "#87CEEB"
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/Kabod.png"
       },
-      "splash": {
-        "image": "./assets/images/Kabod.png",
-        "resizeMode": "cover",
-        "backgroundColor": "#87CEEB"
-      }
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/Kabod.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
     }
   }
 }
