@@ -1,4 +1,4 @@
-﻿import { COLORS } from "@/src/constants/colors";
+import { COLORS } from "@/src/constants/colors";
 import { getPrayerPodcasts, type PrayerPodcastRecord } from "@/src/services/prayerPodcastSupabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";

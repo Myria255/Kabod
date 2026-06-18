@@ -600,7 +600,7 @@ export default function GuidanceTabPage() {
                   <View style={styles.emptyState}>
                     <Ionicons name="chatbubbles-outline" size={24} color={COLORS.gold} />
                     <Text style={styles.emptyTitle}>Aucune discussion pour le moment</Text>
-                    <Text style={styles.emptyText}>Commencez par une question, une priÃ¨re ou une rÃ©flexion.</Text>
+                    <Text style={styles.emptyText}>Commencez par une question, une prière ou une réflexion.</Text>
                   </View>
                 )}
 

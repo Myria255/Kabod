@@ -62,7 +62,7 @@ export default function CommunauteCreatePage() {
           <LinearGradient colors={[COLORS.blueDark, '#1E293B']} style={styles.heroIconCircle}>
             <MaterialCommunityIcons name={icon as any || "account-group"} size={44} color={COLORS.gold} />
           </LinearGradient>
-          <Text style={styles.heroLabel}>APERÇU DE L'ICÔNE</Text>
+          <Text style={styles.heroLabel}>APERÇU DE L’ICÔNE</Text>
           <View style={styles.decorRing} />
         </View>
 

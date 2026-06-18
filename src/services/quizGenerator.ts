@@ -312,7 +312,7 @@ export function generateReliableQuizForReadings(
   };
   questions.forEach((q) => grouped[q.questionType].push(q));
 
-  const typeOrder = shuffle(Object.keys(grouped) as Array<ReliableQuizQuestion["questionType"]>);
+  const typeOrder = shuffle(Object.keys(grouped) as ReliableQuizQuestion["questionType"][]);
   const selected: ReliableQuizQuestion[] = [];
 
   while (selected.length < targetCount) {

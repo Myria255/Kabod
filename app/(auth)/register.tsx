@@ -1,5 +1,4 @@
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -17,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { saveRegistrationDraft } from '@/src/services/registration';
 
 // Palette de couleurs Premium Light
 const COLORS = {
@@ -296,18 +296,44 @@ export default function RegisterScreen() {
   };
 
   const handleNext = async () => {
-    if (!prenom || !nom || !email || !password) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const ageNumber = age ? Number.parseInt(age, 10) : null;
+
+    if (!prenom.trim() || !nom.trim() || !normalizedEmail || !password) {
       alert('Veuillez remplir au moins prénom, nom, email et mot de passe.');
       return;
     }
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      alert('Veuillez saisir une adresse email valide.');
+      return;
+    }
+
+    if (password.length < 8) {
+      alert('Le mot de passe doit contenir au moins 8 caractères.');
+      return;
+    }
+
+    if (ageNumber !== null && (!Number.isFinite(ageNumber) || ageNumber < 1 || ageNumber > 120)) {
+      alert('Veuillez saisir un âge valide.');
+      return;
+    }
+
     const userData = {
-      prenom, nom, sexe, age, situation, profession, pays, ville,
-      email: email.trim(), password,
+      prenom: prenom.trim(),
+      nom: nom.trim(),
+      sexe,
+      age,
+      situation,
+      profession: profession.trim(),
+      pays,
+      ville,
+      email: normalizedEmail,
+      password,
     };
 
     try {
-      await AsyncStorage.setItem('tempRegisterData', JSON.stringify(userData));
+      await saveRegistrationDraft(userData);
       router.push('/(auth)/register-step2');
     } catch (error) {
       alert('Erreur sauvegarde temporaire');

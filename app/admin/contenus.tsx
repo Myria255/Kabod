@@ -32,7 +32,7 @@ export default function AdminContentsPage() {
         <View style={styles.note}>
           <Ionicons name="construct-outline" size={18} color={COLORS.gold} />
           <Text style={styles.noteText}>
-            Etape suivante: brancher la liste, le formulaire d'ajout et la modification sur Supabase.
+            Étape suivante : brancher la liste, le formulaire d’ajout et la modification sur Supabase.
           </Text>
         </View>
 

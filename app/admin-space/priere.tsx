@@ -81,7 +81,7 @@ export default function AdminPrayerPage() {
         <View style={styles.motivationSection}>
            <Text style={styles.motivationTitle}>VOTRE MISSION</Text>
            <Text style={styles.motivationText}>
-             "La prière fervente a une grande efficace." Chaque contenu publié ici soutient la foi de milliers de fidèles à travers le monde.
+             « La prière fervente a une grande efficace. » Chaque contenu publié ici soutient la foi de milliers de fidèles à travers le monde.
            </Text>
         </View>
 

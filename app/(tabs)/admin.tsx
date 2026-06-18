@@ -78,9 +78,9 @@ export default function AdminTabPage() {
             <Ionicons name="shield-checkmark-outline" size={14} color={COLORS.gold} />
             <Text style={styles.heroBadgeText}>Mode administrateur</Text>
           </View>
-          <Text style={styles.title}>Centre d'administration</Text>
+          <Text style={styles.title}>Centre d’administration</Text>
           <Text style={styles.subtitle}>
-            Publiez, mettez a jour et pilotez les contenus de l'application depuis un seul espace.
+            Publiez, mettez à jour et pilotez les contenus de l’application depuis un seul espace.
           </Text>
         </View>
 

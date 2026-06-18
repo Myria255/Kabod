@@ -44,7 +44,7 @@ export default function AdminLivesPage() {
 
         {/* HERO SECTION */}
         <View style={styles.hero}>
-           <Text style={styles.heroSubtitle}>Gérez tout le cycle de vie de vos diffusions en direct et l'organisation des replays.</Text>
+           <Text style={styles.heroSubtitle}>Gérez tout le cycle de vie de vos diffusions en direct et l’organisation des replays.</Text>
         </View>
 
         {/* SECTION CARDS */}

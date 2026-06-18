@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -13,7 +12,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { supabase } from '../../supabaseClient';
+import {
+  clearRegistrationDraft,
+  loadRegistrationDraft,
+  registerUserWithProfile,
+  type RegistrationDraft,
+} from '@/src/services/registration';
 
 // Palette de couleurs Premium Light
 const COLORS = {
@@ -30,9 +34,10 @@ export default function RegisterStep2Screen() {
   const router = useRouter();
   const [language, setLanguage] = useState<'fr' | 'en'>('fr');
 
-  const [tempData, setTempData] = useState<any>(null);
+  const [tempData, setTempData] = useState<RegistrationDraft | null>(null);
   const [communityType, setCommunityType] = useState<'jeune' | 'mariee' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   // Animations
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -65,31 +70,64 @@ export default function RegisterStep2Screen() {
 
   const t = texts[language];
 
+  const handleFinalRegister = useCallback(async (
+    data: RegistrationDraft,
+    join: boolean,
+    typeComm: string | null
+  ) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setIsSubmitting(true);
+
+    try {
+      const result = await registerUserWithProfile({
+        ...data,
+        appartientCommunaute: join,
+        typeCommunaute: join ? typeComm : null,
+      });
+
+      await clearRegistrationDraft();
+
+      if (result.requiresEmailConfirmation) {
+        alert('Compte créé. Consultez votre email pour confirmer votre inscription, puis connectez-vous.');
+        router.replace('/(auth)/login');
+      } else {
+        alert('Inscription terminée avec succès ! Bienvenue sur Kabod.');
+        router.replace('/(tabs)');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Une erreur inattendue est survenue.';
+      alert(`Inscription impossible : ${message}`);
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  }, [router]);
+
   // Chargement des données temporaires + détermination de la communauté
   useEffect(() => {
     const loadTempData = async () => {
       try {
-        const json = await AsyncStorage.getItem('tempRegisterData');
-        if (json) {
-          const data = JSON.parse(json);
-          setTempData(data);
-
-          const ageNum = data.age ? parseInt(data.age) : 0;
-
-          if (data.situation === 'Marié(e)' || data.situation === 'Married') {
-            setCommunityType('mariee');
-          } else if (
-            (data.situation === 'Célibataire' || data.situation === 'Single') &&
-            ageNum >= 15 &&
-            ageNum <= 40
-          ) {
-            setCommunityType('jeune');
-          } else {
-            // Pas éligible → inscription finale directe
-            await handleFinalRegister(data, false, null);
-          }
-        } else {
+        const data = await loadRegistrationDraft();
+        if (!data) {
           router.replace('/(auth)/register');
+          return;
+        }
+
+        setTempData(data);
+
+        const ageNum = data.age ? Number.parseInt(data.age, 10) : 0;
+
+        if (data.situation === 'Marié(e)' || data.situation === 'Married') {
+          setCommunityType('mariee');
+        } else if (
+          (data.situation === 'Célibataire' || data.situation === 'Single') &&
+          ageNum >= 15 &&
+          ageNum <= 40
+        ) {
+          setCommunityType('jeune');
+        } else {
+          await handleFinalRegister(data, false, null);
         }
       } catch (error) {
         console.error(error);
@@ -98,7 +136,7 @@ export default function RegisterStep2Screen() {
     };
 
     loadTempData();
-  }, []);
+  }, [handleFinalRegister, router]);
 
   // Animations
   useEffect(() => {
@@ -106,7 +144,7 @@ export default function RegisterStep2Screen() {
       Animated.timing(logoAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
       Animated.timing(contentAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [contentAnim, logoAnim]);
 
   const logoStyle = {
     opacity: logoAnim,
@@ -116,44 +154,6 @@ export default function RegisterStep2Screen() {
   const contentStyle = {
     opacity: contentAnim,
     transform: [{ translateY: contentAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
-  };
-
-  // Fonction finale d'inscription complète dans Supabase
-  const handleFinalRegister = async (data: any, join: boolean, typeComm: string | null) => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-    const { email, password, ...profileData } = data;
-
-    // 1. Création de l'utilisateur Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-    });
-
-    if (authError) {
-      alert('Erreur inscription : ' + authError.message);
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (authData.user) {
-      // 2. Insertion du profil complet avec choix communauté
-      const { error: profileError } = await supabase.from('users_profile').insert({
-        user_id: authData.user.id,
-        ...profileData,
-        appartient_communaute: join,
-        type_communaute: join ? typeComm : null,
-      });
-
-      if (profileError) {
-        alert('Erreur création profil : ' + profileError.message);
-        setIsSubmitting(false);
-      } else {
-        await AsyncStorage.removeItem('tempRegisterData');
-        alert('Inscription terminée avec succès ! Bienvenue sur Kabod.');
-        router.replace('/(tabs)');
-      }
-    }
   };
 
   const handleChoice = (join: boolean) => {

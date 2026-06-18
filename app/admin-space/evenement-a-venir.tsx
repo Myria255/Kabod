@@ -199,7 +199,7 @@ export default function EventAdminPage() {
                 <View style={styles.fieldBlock}>
                    <View style={styles.labelRow}>
                       <MaterialCommunityIcons name="format-title" size={14} color={COLORS.gold} />
-                      <Text style={styles.label}>Titre de l'événement</Text>
+                      <Text style={styles.label}>Titre de l’événement</Text>
                    </View>
                    <TextInput
                      value={title} onChangeText={setTitle}
@@ -237,7 +237,7 @@ export default function EventAdminPage() {
                 <View style={styles.fieldBlock}>
                    <View style={styles.labelRow}>
                       <MaterialCommunityIcons name="link-variant" size={14} color={COLORS.gold} />
-                      <Text style={styles.label}>Lien d'inscription (Optionnel)</Text>
+                      <Text style={styles.label}>Lien d’inscription (Optionnel)</Text>
                    </View>
                    <TextInput
                      value={registrationUrl} onChangeText={setRegistrationUrl}
@@ -282,7 +282,7 @@ export default function EventAdminPage() {
                    </TouchableOpacity>
                    <TouchableOpacity style={styles.btnPrimary} onPress={() => handleSave("published")} disabled={saving}>
                       <LinearGradient colors={[COLORS.blueDark, '#1E293B']} style={styles.btnPrimaryGrad}>
-                        {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnPrimaryText}>PUBLIER L'ÉVÉNEMENT</Text>}
+                        {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnPrimaryText}>PUBLIER L’ÉVÉNEMENT</Text>}
                       </LinearGradient>
                    </TouchableOpacity>
                 </View>
@@ -295,7 +295,7 @@ export default function EventAdminPage() {
           <View style={styles.libraryHeader}>
             <View style={styles.libraryHeaderText}>
                <Text style={styles.libraryTitle}>Calendrier des Événements</Text>
-               <Text style={styles.librarySubtitle}>Gérez les prochaines rencontres de l'église.</Text>
+               <Text style={styles.librarySubtitle}>Gérez les prochaines rencontres de l’église.</Text>
             </View>
             <View style={styles.countBadge}>
                <Text style={styles.countText}>{items.length}</Text>

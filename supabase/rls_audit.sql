@@ -1,0 +1,47 @@
+-- À exécuter dans le SQL Editor Supabase après la migration.
+
+select
+  n.nspname as schema_name,
+  c.relname as table_name,
+  c.relrowsecurity as rls_enabled,
+  c.relforcerowsecurity as rls_forced
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname in ('public', 'storage')
+  and c.relname in (
+    'users_profile',
+    'progression_lecture',
+    'plan_lecture_utilisateur',
+    'meditations',
+    'admin_prayers',
+    'daily_prayer_topics',
+    'prayer_podcasts',
+    'church_events',
+    'live_streams',
+    'objects'
+  )
+order by n.nspname, c.relname;
+
+select
+  schemaname,
+  tablename,
+  policyname,
+  roles,
+  cmd,
+  qual,
+  with_check
+from pg_policies
+where schemaname in ('public', 'storage')
+  and tablename in (
+    'users_profile',
+    'progression_lecture',
+    'plan_lecture_utilisateur',
+    'meditations',
+    'admin_prayers',
+    'daily_prayer_topics',
+    'prayer_podcasts',
+    'church_events',
+    'live_streams',
+    'objects'
+  )
+order by schemaname, tablename, policyname;

@@ -1,4 +1,4 @@
-﻿import { COLORS } from "@/src/constants/colors";
+import { COLORS } from "@/src/constants/colors";
 import { getLiveStreams, type LiveStreamRecord } from "@/src/services/liveStreamSupabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";

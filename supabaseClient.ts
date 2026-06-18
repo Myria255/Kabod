@@ -1,20 +1,20 @@
-// supabaseClient.ts
-import { createClient } from '@supabase/supabase-js';
-/*import AsyncStorage from '@react-native-async-storage/async-storage';*/
-import * as SecureStore from 'expo-secure-store';
+import { createClient } from "@supabase/supabase-js";
+import * as SecureStore from "expo-secure-store";
 
-const supabaseUrl = 'https://bddzxoucvycndpkbxiwa.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkZHp4b3VjdnljbmRwa2J4aXdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwMjQ0MzAsImV4cCI6MjA4MjYwMDQzMH0.Hjyhwo5QKBgIt4k6SN33SF9TLn-1Lh9DI2D1b_YnIK0';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Supabase env vars are missing. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.');
+  throw new Error(
+    "Configuration Supabase absente. Renseignez EXPO_PUBLIC_SUPABASE_URL et EXPO_PUBLIC_SUPABASE_ANON_KEY dans .env."
+  );
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: {
       async getItem(key: string) {
-        return await SecureStore.getItemAsync(key);
+        return SecureStore.getItemAsync(key);
       },
       async setItem(key: string, value: string) {
         await SecureStore.setItemAsync(key, value);

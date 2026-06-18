@@ -1,8 +1,8 @@
 import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { StyleSheet } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons'; // Assure-toi d'avoir installé : npm install react-native-vector-icons
 
 // Import des écrans
 import Bible from '../tabs/Bible';
@@ -28,7 +28,7 @@ export default function MainLayout() {
           options={{
             tabBarLabel: 'Bible',
             tabBarIcon: ({ color, size }) => (
-              <Icon name="book-outline" color={color} size={size} />
+              <Ionicons name="book-outline" color={color} size={size} />
             ),
           }}
         />

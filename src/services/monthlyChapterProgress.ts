@@ -147,7 +147,7 @@ export async function markMonthlyChapterAsRead(
 
 export async function getMonthlyChaptersProgressForBooks(
   userId: string,
-  books: Array<{ bookId: string; total: number }>
+  books: { bookId: string; total: number }[]
 ): Promise<Record<string, { read: number; total: number; percent: number }>> {
   const result: Record<string, { read: number; total: number; percent: number }> = {};
   if (!userId || books.length === 0) return result;
@@ -172,8 +172,8 @@ export async function getMonthlyChaptersProgressForBooks(
   ]);
 
   const data = [
-    ...((encodedResp.data ?? []) as Array<{ plan: string; numero: number }>),
-    ...((legacyResp.data ?? []) as Array<{ plan: string; numero: number }>),
+    ...((encodedResp.data ?? []) as { plan: string; numero: number }[]),
+    ...((legacyResp.data ?? []) as { plan: string; numero: number }[]),
   ];
   const hasDataError = Boolean(encodedResp.error) && Boolean(legacyResp.error);
 
@@ -250,8 +250,8 @@ export async function getMonthlyReadCountForBook(
   ]);
 
   const data = [
-    ...((encodedResp.data ?? []) as Array<{ plan: string; numero: number }>),
-    ...((legacyResp.data ?? []) as Array<{ plan: string; numero: number }>),
+    ...((encodedResp.data ?? []) as { plan: string; numero: number }[]),
+    ...((legacyResp.data ?? []) as { plan: string; numero: number }[]),
   ];
 
   if (Boolean(encodedResp.error) && Boolean(legacyResp.error)) return 0;
@@ -278,24 +278,24 @@ export async function getMonthlyReadCountForBook(
 
 export async function migrateLegacyMonthlyProgressToDb(
   userId: string,
-  books: Array<{ bookId: string }>
+  books: { bookId: string }[]
 ) {
   if (!userId || books.length === 0) return;
 
-  const payloadEncoded: Array<{
+  const payloadEncoded: {
     utilisateur_id: string;
     plan: string;
     numero: number;
     valide: boolean;
     date_validation: string;
-  }> = [];
-  const payloadLegacy: Array<{
+  }[] = [];
+  const payloadLegacy: {
     utilisateur_id: string;
     plan: string;
     numero: number;
     valide: boolean;
     date_validation: string;
-  }> = [];
+  }[] = [];
 
   const keys = books.map((item) => `${LEGACY_MONTHLY_READ_KEY}:${userId}:${item.bookId}`);
   const values = await AsyncStorage.multiGet(keys);

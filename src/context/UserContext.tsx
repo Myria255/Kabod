@@ -13,6 +13,7 @@ type UserProfile = {
 
 type UserContextType = {
   user: UserProfile | null;
+  isAuthenticated: boolean;
   loading: boolean;
   refreshUser: () => Promise<void>;
 };
@@ -39,6 +40,7 @@ function buildUserProfile(
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function refreshUser() {
@@ -49,10 +51,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } = await supabase.auth.getSession();
 
     if (!session?.user) {
+      setIsAuthenticated(false);
       setUser(null);
       setLoading(false);
       return;
     }
+
+    setIsAuthenticated(true);
 
     const { data, error } = await supabase
       .from("users_profile")
@@ -61,7 +66,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       .maybeSingle();
 
     if (error) {
-      setUser(null);
+      // Une session valide ne doit pas être traitée comme déconnectée à cause
+      // d'une lecture de profil momentanément indisponible.
+      setUser(buildUserProfile(session.user.id, null));
       setLoading(false);
       return;
     }
@@ -92,7 +99,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <UserContext.Provider value={{ user, loading, refreshUser }}>
+    <UserContext.Provider value={{ user, isAuthenticated, loading, refreshUser }}>
       {loading ? (
         <View
           style={{

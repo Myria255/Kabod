@@ -37,7 +37,7 @@ export default function AdminEventsPage() {
 
         {/* HERO SECTION */}
         <View style={styles.hero}>
-           <Text style={styles.heroSubtitle}>Planifiez et diffusez les prochains moments forts de la vie de l'église.</Text>
+           <Text style={styles.heroSubtitle}>Planifiez et diffusez les prochains moments forts de la vie de l’église.</Text>
         </View>
 
         {/* MENU CARDS */}

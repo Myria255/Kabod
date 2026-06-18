@@ -222,7 +222,7 @@ export default function AdminPrayerMessagePage() {
             <Ionicons name="chevron-back" size={24} color={COLORS.blueDark} />
           </TouchableOpacity>
           <View style={styles.headerTitleBox}>
-            <Text style={styles.headerTitle}>PRIÈRE DE L'ADMINISTRATEUR</Text>
+            <Text style={styles.headerTitle}>PRIÈRE DE L’ADMINISTRATEUR</Text>
             <View style={styles.goldLine} />
           </View>
           <TouchableOpacity onPress={resetForm} style={styles.addSealBtn}>
@@ -381,7 +381,7 @@ export default function AdminPrayerMessagePage() {
                           <Text style={styles.verseRefLabel}>{item.verseReference}</Text>
                        </View>
                        {item.verseText ? (
-                         <Text style={styles.itemVerseText} numberOfLines={2}>"{item.verseText}"</Text>
+                         <Text style={styles.itemVerseText} numberOfLines={2}>« {item.verseText} »</Text>
                        ) : null}
                        <Text style={styles.itemDate}>{formatDate(item.updatedAt)}</Text>
                     </View>

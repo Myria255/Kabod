@@ -98,7 +98,7 @@ export default function AdminHomePage() {
                     <Text style={styles.badgeText}>CONSOLE DE GESTION KABOD</Text>
                  </View>
                  <Text style={styles.heroTitle}>Pilotez votre Vision</Text>
-                 <Text style={styles.heroSubtitle}>Gérez les contenus et la diffusion de l'application depuis votre espace sécurisé.</Text>
+                 <Text style={styles.heroSubtitle}>Gérez les contenus et la diffusion de l’application depuis votre espace sécurisé.</Text>
               </View>
               {/* Cercles décoratifs or */}
               <View style={[styles.decorCircle, { top: -40, right: -40 }]} />

@@ -1,4 +1,4 @@
-﻿import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getLatestAdminPrayer, type AdminPrayerRecord } from "@/src/services/adminPrayerSupabase";
 import { COLORS } from "@/src/constants/colors";
 import {
@@ -190,7 +190,7 @@ export default function PrierePage() {
                 <Ionicons name="document-text-outline" size={20} color="#167E67" />
               </View>
               <View style={styles.adminPrayerBody}>
-                <Text style={styles.sectionTitle}>Priere de l'administrateur</Text>
+                <Text style={styles.sectionTitle}>Prière de l’administrateur</Text>
                 <Text style={styles.adminPrayerTitle}>{adminPrayer.title}</Text>
                 <Text style={styles.adminPrayerVerse}>{adminPrayer.verseReference}</Text>
               </View>

@@ -74,7 +74,7 @@ export default function CommunauteManagementPage() {
           <View style={styles.libraryHeader}>
             <View style={styles.libraryHeaderText}>
               <Text style={styles.libraryTitle}>Vos Groupes & Ministères</Text>
-              <Text style={styles.librarySubtitle}>Gérez les espaces d'échange de votre église.</Text>
+              <Text style={styles.librarySubtitle}>Gérez les espaces d’échange de votre église.</Text>
             </View>
             <View style={styles.countBadge}>
               <Text style={styles.countText}>{items.length}</Text>
