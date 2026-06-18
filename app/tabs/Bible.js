@@ -82,7 +82,7 @@ export default function Bible() {
     try {
       const data = await getChapter(API_KEY, `${selectedBook.id}.${chapter}`);
       setVerses(data);
-    } catch (err) {
+    } catch {
       Alert.alert('Erreur', 'Impossible de charger le chapitre.');
     } finally {
       setLoading(false);

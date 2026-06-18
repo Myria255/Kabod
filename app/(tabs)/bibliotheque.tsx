@@ -109,7 +109,9 @@ export default function BibleTabPage() {
                 </View>
                 <Text style={styles.planPill}>Chemin de lecture</Text>
               </View>
-              <Text style={styles.planTitle}>{readingSummary ? readingSummary.label : "Aucun plan actif"}</Text>
+              <Text style={styles.planTitle}>
+                {readingSummary ? readingSummary.label : loadingPlan ? "Chargement du plan..." : "Aucun plan actif"}
+              </Text>
               <Text style={styles.planText}>
                 {readingSummary
                   ? "Retrouvez un rythme spirituel régulier à travers une exploration quotidienne de la Parole."

@@ -1,6 +1,5 @@
 import { COLORS } from "@/src/constants/colors";
 import { useUser } from "@/src/context/UserContext";
-import { supabase } from "@/supabaseClient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { 
@@ -16,19 +15,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export default function AdminProfilePage() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, signOut } = useUser();
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  // Charger la photo locale au démarrage
-  useEffect(() => {
-    loadLocalProfileImage();
-  }, [user?.user_id]);
-
-  const loadLocalProfileImage = async () => {
+  const loadLocalProfileImage = useCallback(async () => {
     try {
       if (user?.user_id) {
         const savedImage = await AsyncStorage.getItem(`profile_image_${user.user_id}`);
@@ -37,7 +31,12 @@ export default function AdminProfilePage() {
     } catch (e) {
       console.error("Erreur lors du chargement de l'image locale", e);
     }
-  };
+  }, [user?.user_id]);
+
+  // Charger la photo locale au démarrage
+  useEffect(() => {
+    loadLocalProfileImage();
+  }, [loadLocalProfileImage]);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -79,17 +78,22 @@ export default function AdminProfilePage() {
           text: "Quitter", 
           style: "destructive", 
           onPress: async () => {
-            const { error } = await supabase.auth.signOut();
-            if (error) {
-              Alert.alert("Erreur", error.message);
-              return;
+            try {
+              await signOut();
+              router.replace("/(auth)/login");
+            } catch (error) {
+              const message = error instanceof Error ? error.message : "Déconnexion impossible.";
+              Alert.alert("Erreur", message);
             }
-            router.replace("/(auth)/login");
           }
         }
       ]
     );
   }
+
+  const showComingSoon = () => {
+    Alert.alert("Bientôt disponible", "La configuration du compte sera activée dans une prochaine version.");
+  };
 
   const NavItem = ({ icon, title, onPress, isLast = false }: any) => (
     <TouchableOpacity 
@@ -166,7 +170,7 @@ export default function AdminProfilePage() {
             <NavItem 
               icon="settings-outline" 
               title="Configuration du compte" 
-              onPress={() => {}} 
+              onPress={showComingSoon} 
             />
             <TouchableOpacity style={styles.logoutRow} onPress={handleLogout}>
               <View style={styles.logoutIconWrapper}>

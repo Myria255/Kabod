@@ -10,11 +10,10 @@ import { supabase } from "@/supabaseClient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Pressable,
   ScrollView,
   StatusBar,
@@ -26,8 +25,6 @@ import {
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const { width } = Dimensions.get('window');
 
 function getTodayDateValue() {
   return new Date().toISOString().slice(0, 10);
@@ -52,15 +49,8 @@ export default function DailyPrayerTopicAdminPage() {
   const [theme, setTheme] = useState("");
   const [message, setMessage] = useState("");
   const [topicDate, setTopicDate] = useState(getTodayDateValue());
-  const [status, setStatus] = useState<DailyPrayerTopicStatus>("draft");
   const [topics, setTopics] = useState<DailyPrayerTopicRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  const publishedCount = useMemo(
-    () => topics.filter((item) => item.status === "published").length,
-    [topics]
-  );
 
   useEffect(() => { loadPage(); }, []);
 
@@ -70,20 +60,18 @@ export default function DailyPrayerTopicAdminPage() {
       setTopics(list);
     } catch (error: any) {
       Alert.alert("Chargement impossible", error?.message ?? "Erreur technique.");
-    } finally {
-      setLoading(false);
     }
   }
 
   function resetForm() {
     setTopicId(null); setTitle(""); setTheme("");
-    setMessage(""); setTopicDate(getTodayDateValue()); setStatus("draft");
+    setMessage(""); setTopicDate(getTodayDateValue());
   }
 
   function hydrateForm(record: DailyPrayerTopicRecord) {
     setTopicId(record.id); setTitle(record.title);
     setTheme(record.theme); setMessage(record.message);
-    setTopicDate(record.topicDate ?? getTodayDateValue()); setStatus(record.status);
+    setTopicDate(record.topicDate ?? getTodayDateValue());
   }
 
   async function handleSave(nextStatus: DailyPrayerTopicStatus) {

@@ -3,8 +3,8 @@ import { Link, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Dimensions,
   Image,
+  Alert,
   StatusBar,
   StyleSheet,
   Text,
@@ -15,11 +15,9 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { supabase } from '../../supabaseClient';
+import { getSupabaseErrorMessage, hasSupabaseConfig, supabase } from '../../supabaseClient';
 import { getDefaultRouteForUser } from '@/src/services/authRedirect';
 import { Ionicons } from '@expo/vector-icons';
-
-const { width, height } = Dimensions.get('window');
 
 // Palette de couleurs Ultra-Premium
 const COLORS = {
@@ -73,21 +71,50 @@ export default function LoginScreen() {
       Animated.timing(formFadeAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
       Animated.timing(formSlideAnim, { toValue: 0, duration: 1000, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [formFadeAnim, formSlideAnim]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) return;
+
+    if (!hasSupabaseConfig) {
+      alert(getSupabaseErrorMessage(new Error("Configuration Supabase absente.")));
+      return;
+    }
+
     setIsLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
     setIsLoading(false);
-    if (error) alert(error.message);
+    if (error) alert(getSupabaseErrorMessage(error));
     else {
       const nextRoute = await getDefaultRouteForUser(data.user.id);
       router.replace(nextRoute);
     }
+  };
+
+  const handleForgotPassword = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      Alert.alert("Email requis", "Entrez votre adresse email avant de demander la réinitialisation.");
+      return;
+    }
+
+    if (!hasSupabaseConfig) {
+      Alert.alert("Configuration", getSupabaseErrorMessage(new Error("Configuration Supabase absente.")));
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+
+    if (error) {
+      Alert.alert("Réinitialisation impossible", getSupabaseErrorMessage(error));
+      return;
+    }
+
+    Alert.alert("Email envoyé", "Si ce compte existe, un lien de réinitialisation vient d’être envoyé.");
   };
 
   return (
@@ -183,7 +210,7 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.forgotBtn}>
+            <TouchableOpacity style={styles.forgotBtn} onPress={handleForgotPassword}>
               <Text style={styles.forgotText}>{t.forgotPassword}</Text>
             </TouchableOpacity>
 

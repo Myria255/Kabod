@@ -19,7 +19,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Linking,
   ScrollView,
   StatusBar,
@@ -30,8 +29,6 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const { width } = Dimensions.get('window');
 
 export default function AdminPrayerPodcastPage() {
   const router = useRouter();
@@ -44,10 +41,8 @@ export default function AdminPrayerPodcastPage() {
   const [existingAudioName, setExistingAudioName] = useState<string>("");
   const [existingAudioUrl, setExistingAudioUrl] = useState<string | null>(null);
   const [existingAudioPath, setExistingAudioPath] = useState<string | null>(null);
-  const [status, setStatus] = useState<PrayerPodcastStatus>("draft");
   const [podcasts, setPodcasts] = useState<PrayerPodcastRecord[]>([]);
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadPage(); }, []);
 
@@ -55,14 +50,13 @@ export default function AdminPrayerPodcastPage() {
     try {
       const [, list] = await Promise.all([getLatestPrayerPodcast(), getPrayerPodcasts()]);
       setPodcasts(list);
-    } catch (e) { Alert.alert("Erreur", "Chargement échoué."); }
-    finally { setLoading(false); }
+    } catch { Alert.alert("Erreur", "Chargement échoué."); }
   }
 
   function resetForm() {
     setPodcastId(null); setTitle(""); setDescription(""); setSourceType("upload");
     setExternalUrl(""); setSelectedAudio(null); setExistingAudioName("");
-    setExistingAudioUrl(null); setExistingAudioPath(null); setStatus("draft");
+    setExistingAudioUrl(null); setExistingAudioPath(null);
   }
 
   function hydrateForm(record: PrayerPodcastRecord) {
@@ -70,7 +64,6 @@ export default function AdminPrayerPodcastPage() {
     setSourceType(record.sourceType); setExternalUrl(record.externalUrl ?? "");
     setExistingAudioUrl(record.audioUrl); setExistingAudioPath(record.audioPath);
     setExistingAudioName(record.audioPath ? record.audioPath.split("/").pop() ?? "" : "");
-    setStatus(record.status);
   }
 
   async function pickAudio() {
@@ -95,7 +88,7 @@ export default function AdminPrayerPodcastPage() {
           await deletePrayerPodcast(record);
           if (podcastId === record.id) resetForm();
           await loadPage();
-        } catch (e) { Alert.alert("Erreur", "La suppression a échoué."); }
+        } catch { Alert.alert("Erreur", "La suppression a échoué."); }
       }}
     ]);
   }
@@ -121,7 +114,7 @@ export default function AdminPrayerPodcastPage() {
 
       resetForm(); await loadPage();
       Alert.alert(nextStatus === "published" ? "Publié" : "Brouillon sauvegardé");
-    } catch (e) { Alert.alert("Erreur", "Échec enregistrement."); }
+    } catch { Alert.alert("Erreur", "Échec enregistrement."); }
     finally { setSaving(false); }
   }
 

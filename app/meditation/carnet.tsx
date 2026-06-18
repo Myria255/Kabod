@@ -3,7 +3,7 @@ import { getBooks, getChapters, getVerses } from "@/src/constants/bible";
 import { supabase } from "@/supabaseClient";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -91,7 +91,7 @@ export default function MeditationCarnet() {
     };
   }
 
-  async function fetchEntries(uid: string) {
+  const fetchEntries = useCallback(async (uid: string) => {
     const primary = await supabase
       .from(TABLE_MEDITATIONS)
       .select("*")
@@ -115,7 +115,7 @@ export default function MeditationCarnet() {
     }
 
     throw primary.error ?? fallback.error ?? new Error("Chargement impossible");
-  }
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -154,7 +154,7 @@ export default function MeditationCarnet() {
       }
     };
     load();
-  }, [router]);
+  }, [fetchEntries, router]);
 
   const saveEntry = async () => {
     if (!profileId) {

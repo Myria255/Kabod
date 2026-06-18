@@ -1,8 +1,8 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { COLORS } from "@/src/constants/colors";
-import { supabase } from "@/supabaseClient";
+import { getSupabaseErrorMessage, supabase } from "@/supabaseClient";
 
 type UserProfile = {
   user_id: string;
@@ -16,6 +16,7 @@ type UserContextType = {
   isAuthenticated: boolean;
   loading: boolean;
   refreshUser: () => Promise<void>;
+  signOut: () => Promise<void>;
 };
 
 const UserContext = createContext<UserContextType | null>(null);
@@ -43,7 +44,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  async function refreshUser() {
+  const clearCurrentUser = useCallback(() => {
+    setIsAuthenticated(false);
+    setUser(null);
+  }, []);
+
+  const refreshUser = useCallback(async () => {
     setLoading(true);
 
     const {
@@ -51,8 +57,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } = await supabase.auth.getSession();
 
     if (!session?.user) {
-      setIsAuthenticated(false);
-      setUser(null);
+      clearCurrentUser();
       setLoading(false);
       return;
     }
@@ -75,7 +80,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     setUser(buildUserProfile(session.user.id, (data ?? null) as Record<string, unknown> | null));
     setLoading(false);
-  }
+  }, [clearCurrentUser]);
+
+  const signOut = useCallback(async () => {
+    setLoading(true);
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      setLoading(false);
+      throw new Error(getSupabaseErrorMessage(error));
+    }
+
+    clearCurrentUser();
+    setLoading(false);
+  }, [clearCurrentUser]);
 
   useEffect(() => {
     let mounted = true;
@@ -87,19 +106,30 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     safeRefresh();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async () => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
-      await refreshUser();
+
+      if (!session?.user) {
+        clearCurrentUser();
+        setLoading(false);
+        return;
+      }
+
+      setTimeout(() => {
+        if (mounted) {
+          refreshUser();
+        }
+      }, 0);
     });
 
     return () => {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [clearCurrentUser, refreshUser]);
 
   return (
-    <UserContext.Provider value={{ user, isAuthenticated, loading, refreshUser }}>
+    <UserContext.Provider value={{ user, isAuthenticated, loading, refreshUser, signOut }}>
       {loading ? (
         <View
           style={{

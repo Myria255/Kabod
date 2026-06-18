@@ -123,51 +123,6 @@ export default function PlanAnnuel() {
     corrections: QuizCorrection[];
   } | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      initialiser();
-    }, [])
-  );
-
-  useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    let active = true;
-
-    const subscribeRealtime = async () => {
-      const { data: sessionData } = await supabase.auth.getUser();
-      const user = sessionData.user;
-      if (!user || !active) return;
-
-      channel = supabase
-        .channel(`progression-annuel-${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "progression_lecture",
-            filter: `utilisateur_id=eq.${user.id}`,
-          },
-          (payload) => {
-            const row = (payload.new ?? payload.old ?? {}) as { plan?: string };
-            if (row.plan === "annuel") {
-              initialiser();
-            }
-          }
-        )
-        .subscribe();
-    };
-
-    subscribeRealtime();
-
-    return () => {
-      active = false;
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, []);
-
   async function openNotificationInbox() {
     if (lastNotif) {
       Alert.alert(lastNotif.title, lastNotif.body);
@@ -184,7 +139,7 @@ export default function PlanAnnuel() {
     Alert.alert("Notifications", "Aucune notification a lire.");
   }
 
-  async function initialiser() {
+  const initialiser = useCallback(async () => {
     setChargement(true);
     try {
       const { data: sessionData } = await supabase.auth.getUser();
@@ -293,7 +248,52 @@ export default function PlanAnnuel() {
     } finally {
       setChargement(false);
     }
-  }
+  }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      initialiser();
+    }, [initialiser])
+  );
+
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let active = true;
+
+    const subscribeRealtime = async () => {
+      const { data: sessionData } = await supabase.auth.getUser();
+      const user = sessionData.user;
+      if (!user || !active) return;
+
+      channel = supabase
+        .channel(`progression-annuel-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "progression_lecture",
+            filter: `utilisateur_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const row = (payload.new ?? payload.old ?? {}) as { plan?: string };
+            if (row.plan === "annuel") {
+              initialiser();
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    subscribeRealtime();
+
+    return () => {
+      active = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [initialiser]);
 
   const isDayComplete =
     chapitresDuJour.length > 0 &&

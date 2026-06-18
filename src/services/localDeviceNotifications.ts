@@ -7,6 +7,7 @@ type NotificationPayload = {
 
 function getExpoNotificationsModule(): any | null {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require("expo-notifications");
   } catch {
     return null;

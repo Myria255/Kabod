@@ -1,10 +1,9 @@
 import { COLORS } from "@/src/constants/colors";
 import { useUser } from "@/src/context/UserContext";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const ACTIVITY_ITEMS = [
@@ -20,14 +19,32 @@ const SETTINGS_ITEMS = [
 ];
 
 export default function ProfilePage() {
-  const { user, loading: userLoading } = useUser();
+  const { user, loading: userLoading, signOut } = useUser();
   const router = useRouter();
   const userName = user?.nom ?? "Utilisateur";
   const userInitial = userName.charAt(0).toUpperCase();
 
   const handleLogout = async () => {
-    await AsyncStorage.clear();
-    router.replace("/(auth)/login");
+    Alert.alert("Déconnexion", "Souhaitez-vous quitter votre session ?", [
+      { text: "Annuler", style: "cancel" },
+      {
+        text: "Se déconnecter",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut();
+            router.replace("/(auth)/login");
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Déconnexion impossible.";
+            Alert.alert("Erreur", message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const showComingSoon = () => {
+    Alert.alert("Bientôt disponible", "Cette option sera activée dans une prochaine version.");
   };
 
   return (
@@ -70,7 +87,7 @@ export default function ProfilePage() {
 
         <Section title="Réglages">
           {SETTINGS_ITEMS.map((item) => (
-            <Item key={item.label} icon={item.icon} label={item.label} onPress={() => {}} />
+            <Item key={item.label} icon={item.icon} label={item.label} onPress={showComingSoon} />
           ))}
         </Section>
 

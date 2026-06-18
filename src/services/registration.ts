@@ -1,4 +1,4 @@
-import { supabase } from "@/supabaseClient";
+import { getSupabaseErrorMessage, hasSupabaseConfig, supabase } from "@/supabaseClient";
 import * as SecureStore from "expo-secure-store";
 
 const REGISTRATION_DRAFT_KEY = "KABOD_REGISTRATION_DRAFT_V1";
@@ -74,6 +74,10 @@ export async function clearRegistrationDraft() {
 export async function registerUserWithProfile(
   input: RegistrationInput
 ): Promise<RegistrationResult> {
+  if (!hasSupabaseConfig) {
+    throw new Error(getSupabaseErrorMessage(new Error("Configuration Supabase absente.")));
+  }
+
   const email = input.email.trim().toLowerCase();
   const profile = buildProfile(input);
 
@@ -85,7 +89,7 @@ export async function registerUserWithProfile(
     },
   });
 
-  if (error) throw error;
+  if (error) throw new Error(getSupabaseErrorMessage(error));
   if (!data.user) {
     throw new Error("Supabase n’a retourné aucun utilisateur après l’inscription.");
   }
