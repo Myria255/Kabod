@@ -4,7 +4,7 @@
     "slug": "KabodV1",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Kabod.png",
+    "icon": "./assets/images/kabod relook-04.png",
     "scheme": "kabodv1",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,14 +14,14 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/Kabod.png"
+        "foregroundImage": "./assets/images/kabod relook-04.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/Kabod.png"
+      "favicon": "./assets/images/kabod relook-04.png"
     },
     "plugins": [
       "expo-router",
@@ -36,7 +36,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

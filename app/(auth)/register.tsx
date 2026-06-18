@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,7 @@ import {
   Modal,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -17,16 +18,16 @@ import {
   View,
 } from 'react-native';
 
-// Palette de couleurs Premium
+// Palette de couleurs Premium Light
 const COLORS = {
-  blue: "#0F172A",
-  blueLight: "#1E293B",
-  gold: "#D4AF37",
   white: "#FFFFFF",
-  grayLight: "#F8FAFC",
-  grayBg: "#F1F5F9",
+  bgLight: "#F8FAFC",
+  deepBlue: "#0F172A",
+  gold: "#D4AF37",
+  goldLight: "#F3D060",
   grayText: "#64748B",
   border: "#E2E8F0",
+  inputBg: "#FFFFFF",
 };
 
 // Composant SelectField iOS-compatible
@@ -60,8 +61,8 @@ const SelectField: React.FC<SelectFieldProps> = ({
     setShowModal(false);
   };
 
-  const displayText = value 
-    ? options.find(o => o.value === value)?.label 
+  const displayText = value
+    ? options.find(o => o.value === value)?.label
     : label;
 
   if (Platform.OS === 'ios') {
@@ -71,7 +72,7 @@ const SelectField: React.FC<SelectFieldProps> = ({
           <View style={styles.iconContainer}>
             <Ionicons name={iconName} size={20} color={COLORS.gold} />
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.selectButton, !enabled && styles.selectButtonDisabled]}
             onPress={() => enabled && setShowModal(true)}
             disabled={!enabled}
@@ -83,10 +84,10 @@ const SelectField: React.FC<SelectFieldProps> = ({
             ]}>
               {displayText}
             </Text>
-            <Ionicons 
-              name="chevron-down" 
-              size={20} 
-              color={enabled ? COLORS.grayText : '#CBD5E1'} 
+            <Ionicons
+              name="chevron-down"
+              size={20}
+              color={enabled ? COLORS.grayText : '#CBD5E1'}
             />
           </TouchableOpacity>
         </View>
@@ -114,10 +115,10 @@ const SelectField: React.FC<SelectFieldProps> = ({
               >
                 <Picker.Item label={label} value={null} />
                 {options.map((option) => (
-                  <Picker.Item 
-                    key={option.value} 
-                    label={option.label} 
-                    value={option.value} 
+                  <Picker.Item
+                    key={option.value}
+                    label={option.label}
+                    value={option.value}
                   />
                 ))}
               </Picker>
@@ -128,7 +129,6 @@ const SelectField: React.FC<SelectFieldProps> = ({
     );
   }
 
-  // Pour Android
   return (
     <View style={styles.inputWrapper}>
       <View style={styles.iconContainer}>
@@ -143,10 +143,10 @@ const SelectField: React.FC<SelectFieldProps> = ({
         >
           <Picker.Item label={label} value={null} color={COLORS.grayText} />
           {options.map((option) => (
-            <Picker.Item 
-              key={option.value} 
-              label={option.label} 
-              value={option.value} 
+            <Picker.Item
+              key={option.value}
+              label={option.label}
+              value={option.value}
             />
           ))}
         </Picker>
@@ -182,8 +182,8 @@ export default function RegisterScreen() {
   const texts = {
     fr: {
       languageLabel: 'FR',
-      verse: 'Car Dieu a tant aimé le monde qu’il a donné son Fils unique,\nafin que quiconque croit en lui ne périsse point,\nmais qu’il ait la vie éternelle.',
-      verseRef: 'Jean 3:16',
+      verse: 'Tout est possible à celui qui croit.',
+      verseRef: 'Marc 9:23',
       prenom: 'Prénom',
       nom: 'Nom de famille',
       sexe: 'Sexe',
@@ -194,8 +194,8 @@ export default function RegisterScreen() {
       ville: 'Ville',
       email: 'Email',
       password: 'Mot de passe',
-      precedent: 'Précédent',
-      suivant: 'Suivant',
+      precedent: 'Retour',
+      suivant: 'Continuer',
       selectSexe: [
         { label: 'Homme', value: 'Homme' },
         { label: 'Femme', value: 'Femme' },
@@ -207,8 +207,8 @@ export default function RegisterScreen() {
     },
     en: {
       languageLabel: 'ENG',
-      verse: 'For God so loved the world that he gave his one and only Son,\nthat whoever believes in him shall not perish\nbut have eternal life.',
-      verseRef: 'John 3:16',
+      verse: 'Everything is possible for one who believes.',
+      verseRef: 'Mark 9:23',
       prenom: 'First name',
       nom: 'Last name',
       sexe: 'Gender',
@@ -219,8 +219,8 @@ export default function RegisterScreen() {
       ville: 'City',
       email: 'Email',
       password: 'Password',
-      precedent: 'Previous',
-      suivant: 'Next',
+      precedent: 'Back',
+      suivant: 'Continue',
       selectSexe: [
         { label: 'Male', value: 'Male' },
         { label: 'Female', value: 'Female' },
@@ -291,7 +291,9 @@ export default function RegisterScreen() {
     transform: [{ translateY: verseAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }],
   };
 
-  const formStyle = { opacity: formAnim };
+  const formStyle = {
+    opacity: formAnim,
+  };
 
   const handleNext = async () => {
     if (!prenom || !nom || !email || !password) {
@@ -315,11 +317,10 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient 
-        colors={['#FFFFFF', '#F8FAFC', '#FFFFFF']} 
+      <StatusBar barStyle="dark-content" />
+      <LinearGradient
+        colors={[COLORS.white, COLORS.bgLight]}
         style={styles.backgroundGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
       />
 
       <ScrollView
@@ -327,9 +328,9 @@ export default function RegisterScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Changer langue */}
-        <TouchableOpacity 
-          onPress={() => setLanguage(language === 'fr' ? 'en' : 'fr')} 
+        {/* Header: Language */}
+        <TouchableOpacity
+          onPress={() => setLanguage(language === 'fr' ? 'en' : 'fr')}
           style={styles.languageButton}
         >
           <Ionicons name="language" size={18} color={COLORS.gold} />
@@ -338,25 +339,18 @@ export default function RegisterScreen() {
 
         {/* Logo */}
         <Animated.View style={[styles.logoContainer, logoStyle]}>
-          <LinearGradient
-            colors={['#0F172A', '#1E293B']}
-            style={styles.logoCircle}
-          >
-            <View style={styles.logoInner}>
-              <Image 
-                source={require('../../assets/images/Kabod.png')} 
-                style={styles.logo} 
-                resizeMode="contain" 
-              />
-            </View>
-          </LinearGradient>
+          <View style={styles.logoCircle}>
+            <Image
+              source={require('../../assets/images/kabod relook-04.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
         </Animated.View>
 
-        {/* Verset */}
+        {/* Verse */}
         <Animated.View style={[styles.verseContainer, verseStyle]}>
-          <View style={styles.quoteIconTop}>
-            <Ionicons name="book" size={18} color={COLORS.gold} />
-          </View>
+          <FontAwesome name="quote-left" size={20} color={COLORS.gold} style={styles.quoteIcon} />
           <Text style={styles.verseText}>{t.verse}</Text>
           <View style={styles.verseRefContainer}>
             <View style={styles.goldLine} />
@@ -365,61 +359,62 @@ export default function RegisterScreen() {
           </View>
         </Animated.View>
 
-        {/* Formulaire */}
+        {/* Form */}
         <Animated.View style={[styles.formContainer, formStyle]}>
-          {/* Prénom */}
-          <View style={styles.inputWrapper}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="person-outline" size={20} color={COLORS.gold} />
+          <Text style={styles.sectionTitle}>INFORMATIONS PERSONNELLES</Text>
+
+          <View style={styles.inputRow}>
+            <View style={[styles.inputWrapper, { flex: 1 }]}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="person-outline" size={20} color={COLORS.gold} />
+              </View>
+              <TextInput
+                placeholder={t.prenom}
+                value={prenom}
+                onChangeText={setPrenom}
+                style={styles.input}
+                placeholderTextColor={COLORS.grayText}
+              />
             </View>
-            <TextInput 
-              placeholder={t.prenom} 
-              value={prenom} 
-              onChangeText={setPrenom} 
-              style={styles.input} 
-              placeholderTextColor={COLORS.grayText} 
-            />
+            <View style={[styles.inputWrapper, { flex: 1 }]}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="people-outline" size={20} color={COLORS.gold} />
+              </View>
+              <TextInput
+                placeholder={t.nom}
+                value={nom}
+                onChangeText={setNom}
+                style={styles.input}
+                placeholderTextColor={COLORS.grayText}
+              />
+            </View>
           </View>
 
-          {/* Nom */}
-          <View style={styles.inputWrapper}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="people-outline" size={20} color={COLORS.gold} />
+          <View style={styles.inputRow}>
+            <View style={{ flex: 1.5 }}>
+              <SelectField
+                label={t.sexe}
+                value={sexe}
+                onValueChange={setSexe}
+                options={t.selectSexe}
+                iconName="male-female-outline"
+              />
             </View>
-            <TextInput 
-              placeholder={t.nom} 
-              value={nom} 
-              onChangeText={setNom} 
-              style={styles.input} 
-              placeholderTextColor={COLORS.grayText} 
-            />
+            <View style={[styles.inputWrapper, { flex: 1 }]}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="calendar-outline" size={20} color={COLORS.gold} />
+              </View>
+              <TextInput
+                placeholder={t.age}
+                value={age}
+                onChangeText={setAge}
+                keyboardType="numeric"
+                style={styles.input}
+                placeholderTextColor={COLORS.grayText}
+              />
+            </View>
           </View>
 
-          {/* SEXE */}
-          <SelectField
-            label={t.sexe}
-            value={sexe}
-            onValueChange={setSexe}
-            options={t.selectSexe}
-            iconName="male-female-outline"
-          />
-
-          {/* Age */}
-          <View style={styles.inputWrapper}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="calendar-outline" size={20} color={COLORS.gold} />
-            </View>
-            <TextInput 
-              placeholder={t.age} 
-              value={age} 
-              onChangeText={setAge} 
-              keyboardType="numeric" 
-              style={styles.input} 
-              placeholderTextColor={COLORS.grayText} 
-            />
-          </View>
-
-          {/* Situation */}
           <SelectField
             label={t.situation}
             value={situation}
@@ -428,82 +423,84 @@ export default function RegisterScreen() {
             iconName="heart-outline"
           />
 
-          {/* Profession */}
           <View style={styles.inputWrapper}>
             <View style={styles.iconContainer}>
               <Ionicons name="briefcase-outline" size={20} color={COLORS.gold} />
             </View>
-            <TextInput 
-              placeholder={t.profession} 
-              value={profession} 
-              onChangeText={setProfession} 
-              style={styles.input} 
-              placeholderTextColor={COLORS.grayText} 
+            <TextInput
+              placeholder={t.profession}
+              value={profession}
+              onChangeText={setProfession}
+              style={styles.input}
+              placeholderTextColor={COLORS.grayText}
             />
           </View>
 
-          {/* Pays */}
-          <SelectField
-            label={t.pays}
-            value={pays}
-            onValueChange={setPays}
-            options={countries}
-            iconName="flag-outline"
-          />
+          <Text style={styles.sectionTitle}>LOCALISATION & CONTACT</Text>
 
-          {/* Ville */}
-          <SelectField
-            label={cities.length > 0 ? t.ville : '...'}
-            value={ville}
-            onValueChange={setVille}
-            options={cities}
-            iconName="location-outline"
-            enabled={cities.length > 0}
-          />
+          <View style={styles.inputRow}>
+            <View style={{ flex: 1 }}>
+              <SelectField
+                label={t.pays}
+                value={pays}
+                onValueChange={setPays}
+                options={countries}
+                iconName="flag-outline"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <SelectField
+                label={cities.length > 0 ? t.ville : '...'}
+                value={ville}
+                onValueChange={setVille}
+                options={cities}
+                iconName="location-outline"
+                enabled={cities.length > 0}
+              />
+            </View>
+          </View>
 
-          {/* Email */}
           <View style={styles.inputWrapper}>
             <View style={styles.iconContainer}>
               <Ionicons name="mail-outline" size={20} color={COLORS.gold} />
             </View>
-            <TextInput 
-              placeholder={t.email} 
-              value={email} 
-              onChangeText={setEmail} 
-              keyboardType="email-address" 
-              autoCapitalize="none" 
-              style={styles.input} 
-              placeholderTextColor={COLORS.grayText} 
+            <TextInput
+              placeholder={t.email}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={styles.input}
+              placeholderTextColor={COLORS.grayText}
             />
           </View>
 
-          {/* Password */}
           <View style={styles.inputWrapper}>
             <View style={styles.iconContainer}>
               <Ionicons name="lock-closed-outline" size={20} color={COLORS.gold} />
             </View>
-            <TextInput 
-              placeholder={t.password} 
-              value={password} 
-              onChangeText={setPassword} 
+            <TextInput
+              placeholder={t.password}
+              value={password}
+              onChangeText={setPassword}
               secureTextEntry={!showPassword}
-              style={styles.input} 
-              placeholderTextColor={COLORS.grayText} 
+              style={styles.input}
+              placeholderTextColor={COLORS.grayText}
             />
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eyeIcon}
             >
-              <Ionicons 
-                name={showPassword ? "eye-outline" : "eye-off-outline"} 
-                size={20} 
-                color={COLORS.grayText} 
+              <Ionicons
+                name={showPassword ? "eye-outline" : "eye-off-outline"}
+                size={20}
+                color={COLORS.grayText}
               />
             </TouchableOpacity>
           </View>
         </Animated.View>
 
-        {/* Boutons */}
+        {/* Buttons */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={18} color={COLORS.grayText} />
@@ -512,9 +509,9 @@ export default function RegisterScreen() {
 
           <TouchableOpacity onPress={handleNext} activeOpacity={0.9}>
             <LinearGradient
-              colors={['#0F172A', '#1E293B']}
+              colors={[COLORS.deepBlue, "#1E293B"]}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              end={{ x: 1, y: 0 }}
               style={styles.nextButton}
             >
               <Text style={styles.nextButtonText}>{t.suivant}</Text>
@@ -528,21 +525,12 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
+  container: { flex: 1, backgroundColor: COLORS.white },
+  backgroundGradient: { ...StyleSheet.absoluteFillObject },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 15,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 30,
   },
   languageButton: {
     alignSelf: 'flex-end',
@@ -550,262 +538,170 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: COLORS.white,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: COLORS.gold,
-    marginBottom: 10,
-    shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  languageText: {
-    color: COLORS.gold,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-    position: 'relative',
-  },
-  logoCircle: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  logoInner: {
-    width: 118,
-    height: 118,
-    borderRadius: 70,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logo: {
-    width: 80,
-    height: 80,
-  },
-  verseContainer: {
-    alignItems: 'center',
-    marginBottom: 36,
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-    backgroundColor: COLORS.white,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    position: 'relative',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  quoteIconTop: {
-    position: 'absolute',
-    top: -14,
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 8,
-    borderWidth: 1.5,
     borderColor: COLORS.gold,
+    marginBottom: 20,
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 2,
   },
+  languageText: { color: COLORS.gold, fontSize: 13, fontWeight: '700' },
+
+  logoContainer: { alignItems: 'center', marginBottom: 10 },
+  logoCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.deepBlue,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+    padding: 6,
+  },
+  logo: { width: '100%', height: '100%' },
+
+  verseContainer: {
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    width: '85%',
+    alignSelf: 'center',
+  },
+  quoteIcon: { marginBottom: 4 },
   verseText: {
-    fontSize: 14.5,
-    color: COLORS.blue,
+    fontSize: 13,
+    color: COLORS.deepBlue,
     textAlign: 'center',
-    lineHeight: 23,
+    lineHeight: 18,
     fontStyle: 'italic',
-    marginTop: 12,
     fontWeight: '400',
   },
   verseRefContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
-    gap: 12,
+    marginTop: 6,
+    gap: 6,
   },
-  goldLine: {
-    width: 30,
-    height: 1,
-    backgroundColor: COLORS.gold,
+  goldLine: { width: 20, height: 1, backgroundColor: COLORS.gold },
+  verseRef: { fontSize: 11, fontWeight: '700', color: COLORS.gold, letterSpacing: 1 },
+
+  formContainer: { gap: 15 },
+  sectionTitle: {
+    fontSize: 12,
+    color: COLORS.deepBlue,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginTop: 10,
+    marginBottom: 5,
+    opacity: 0.6
   },
-  verseRef: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.gold,
-    letterSpacing: 1,
-  },
-  formContainer: {
-    gap: 18,
-  },
-  inputWrapper: {
-    position: 'relative',
-  },
+  inputRow: { flexDirection: 'row', gap: 10 },
+  inputWrapper: { position: 'relative' },
   iconContainer: {
     position: 'absolute',
-    left: 16,
-    top: 16,
+    left: 14,
+    top: 14,
     zIndex: 1,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FEF9E7',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   input: {
     backgroundColor: COLORS.white,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    paddingLeft: 56,
-    paddingRight: 16,
-    paddingVertical: 15,
-    fontSize: 15,
-    color: COLORS.blue,
-    height: 56,
-  },
-  eyeIcon: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
-    padding: 4,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 36,
-    alignItems: 'center',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 12,
-  },
-  backButtonText: {
-    color: COLORS.grayText,
+    paddingLeft: 45,
+    paddingRight: 15,
     fontSize: 16,
-    fontWeight: '500',
+    color: COLORS.deepBlue,
+    height: 55,
   },
-  nextButton: {
-    borderRadius: 14,
-    paddingHorizontal: 32,
-    paddingVertical: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  nextButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  // Styles pour SelectField iOS
+  eyeIcon: { position: 'absolute', right: 14, top: 14 },
+
+  // SelectField styles
   selectButton: {
     backgroundColor: COLORS.white,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    paddingLeft: 56,
-    paddingRight: 16,
-    paddingVertical: 15,
+    paddingLeft: 45,
+    paddingRight: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 56,
+    height: 55,
   },
-  selectButtonDisabled: {
-    backgroundColor: '#F8FAFC',
-    opacity: 0.6,
-  },
-  selectText: {
-    fontSize: 15,
-    color: COLORS.blue,
-    flex: 1,
-  },
-  placeholderText: {
-    color: COLORS.grayText,
-  },
-  disabledText: {
-    color: '#CBD5E1',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
+  selectButtonDisabled: { backgroundColor: COLORS.bgLight, opacity: 0.6 },
+  selectText: { fontSize: 16, color: COLORS.deepBlue, flex: 1 },
+  placeholderText: { color: COLORS.grayText },
+  disabledText: { color: COLORS.grayText },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
   modalContent: {
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 34,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingBottom: 40
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 25,
+    paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: COLORS.blue,
-  },
-  cancelText: {
-    fontSize: 17,
-    color: COLORS.grayText,
-  },
-  confirmText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: COLORS.gold,
-  },
-  pickerItem: {
-    fontSize: 20,
-    height: 120,
-    color: COLORS.blue,
-  },
-  // Styles pour Android Picker
+  modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.deepBlue },
+  cancelText: { fontSize: 16, color: COLORS.grayText },
+  confirmText: { fontSize: 16, fontWeight: '700', color: COLORS.gold },
+  pickerItem: { fontSize: 18, height: 150 },
+
   pickerWrapper: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    borderRadius: 14,
-    paddingLeft: 56,
+    paddingLeft: 40,
     justifyContent: 'center',
-    height: 56,
-    backgroundColor: COLORS.white,
-    overflow: 'hidden',
+    height: 55,
+    overflow: 'hidden'
   },
-  pickerWrapperDisabled: {
-    backgroundColor: '#F8FAFC',
-    opacity: 0.6,
+  pickerWrapperDisabled: { backgroundColor: COLORS.bgLight, opacity: 0.6 },
+  picker: { color: COLORS.deepBlue, width: '110%', marginLeft: -10 },
+
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 40,
+    alignItems: 'center',
   },
-  picker: {
-    color: COLORS.blue,
-    height: 56,
-    width: '100%',
+  backButton: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backButtonText: { color: COLORS.grayText, fontSize: 16, fontWeight: '600' },
+  nextButton: {
+    borderRadius: 15,
+    paddingHorizontal: 35,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: COLORS.deepBlue,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
+  nextButtonText: { color: COLORS.white, fontSize: 16, fontWeight: '800', letterSpacing: 1 },
 });

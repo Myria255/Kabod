@@ -1,9 +1,15 @@
 export const COLORS = {
-  blue: "#6B85C6",        // Bleu principal
-  blueDark: "#0F172A",    // Bleu profond
-  gold: "#D4AF37",        // Or premium
-  white: "#FFFFFF",      // Blanc
-  black: "#0F0F14",       // Noir élégant
-  grayLight: "#F2F3F7",  // Fond clair
-  gray: "#6B6F8A",
+  blue: "#516AA8",
+  blueDark: "#101827",
+  blueMid: "#1D2A44",
+  blueSoft: "#EAF0FF",
+  gold: "#D9B75F",
+  goldSoft: "#FFF5D6",
+  emerald: "#1E8A6A",
+  emeraldSoft: "#DDF7F1",
+  white: "#FFFFFF",
+  black: "#0F0F14",
+  grayLight: "#F5F7FB",
+  gray: "#6B7280",
+  border: "#E6EAF2",
 };

@@ -16,6 +16,7 @@ import { supabase } from "@/supabaseClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -29,6 +30,9 @@ const COLORS = {
   grayLight: "#F1F5F9",
   gray: "#64748B",
   bg: "#F8FAFC",
+  blueSoft: THEME_COLORS.blueSoft,
+  border: THEME_COLORS.border,
+  goldSoft: THEME_COLORS.goldSoft,
 };
 
 const PLAN_START_KEY = "PLAN_START_DATE_V1";
@@ -89,6 +93,7 @@ export default function PlanMensuelPremium() {
 
   const loadProgress = useCallback(async () => {
     try {
+      setLoaded(false);
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (!user) {
@@ -125,8 +130,24 @@ export default function PlanMensuelPremium() {
           plan.map((item) => ({ bookId: item.bookId, total: item.nombreChapitres }))
         ),
       ]);
+      const mergedBookProgress = { ...bookProgress };
+      plan.forEach((item) => {
+        const savedChapter = lastChapters[item.bookId] ?? 1;
+        const inferredRead = Math.max(0, Math.min(savedChapter - 1, item.nombreChapitres));
+        const current = mergedBookProgress[item.bookId] ?? {
+          read: 0,
+          total: item.nombreChapitres,
+          percent: 0,
+        };
+        const read = Math.max(current.read, inferredRead);
+        mergedBookProgress[item.bookId] = {
+          read,
+          total: item.nombreChapitres,
+          percent: item.nombreChapitres > 0 ? Math.min(100, Math.round((read / item.nombreChapitres) * 100)) : 0,
+        };
+      });
       setLastChapterByBook(lastChapters);
-      setChapterProgressByBook(bookProgress);
+      setChapterProgressByBook(mergedBookProgress);
       const notifAllowed = await ensureLocalNotificationPermission();
       setNotifEnabled(notifAllowed);
       const unreadKey = `${PLAN_UNREAD_NOTIFICATION_KEY}:${user.id}:mensuel`;
@@ -235,10 +256,45 @@ export default function PlanMensuelPremium() {
     };
   }, [loadProgress]);
 
-  const progression = useMemo(
+  const currentPlanItem = useMemo(
+    () => plan.find((item) => item.mois === moisActuel) ?? plan[0],
+    [moisActuel, plan]
+  );
+
+  const currentBookName = currentPlanItem
+    ? currentPlanItem.bookId.charAt(0).toUpperCase() + currentPlanItem.bookId.slice(1)
+    : "";
+
+  const currentBookProgress = currentPlanItem
+    ? chapterProgressByBook[currentPlanItem.bookId]
+    : null;
+
+  const currentReadCount = currentPlanItem
+    ? Math.min(currentBookProgress?.read ?? 0, currentPlanItem.nombreChapitres)
+    : 0;
+
+  const currentReadingPercent = currentPlanItem
+    ? Math.min(currentBookProgress?.percent ?? 0, 100)
+    : 0;
+
+  const validatedBooksPercent = useMemo(
     () => Math.min(Math.round((completedMonths.length / 12) * 100), 100),
     [completedMonths]
   );
+
+  function getStartChapterForItem(item: PlanItem) {
+    const isCompleted = completedMonths.includes(item.mois);
+    const chapterProgress = chapterProgressByBook[item.bookId];
+    const readCount = isCompleted
+      ? item.nombreChapitres
+      : Math.min(chapterProgress?.read ?? 0, item.nombreChapitres);
+    const lastChapter = lastChapterByBook[item.bookId] ?? 1;
+    const nextUnreadChapter = Math.min(readCount + 1, item.nombreChapitres);
+
+    return readCount > 0
+      ? nextUnreadChapter
+      : Math.min(Math.max(lastChapter, 1), item.nombreChapitres);
+  }
 
   async function openNotificationInbox() {
     if (lastNotif) {
@@ -294,20 +350,56 @@ export default function PlanMensuelPremium() {
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroCard}>
+        <LinearGradient colors={[COLORS.blueDark, "#1D2A44"]} style={styles.heroCard}>
           <View style={styles.heroContent}>
-            <View style={styles.badgeLabel}>
-              <Text style={styles.badgeText}>OBJECTIF</Text>
+            <View style={styles.heroTop}>
+              <View style={styles.badgeLabel}>
+                <Text style={styles.badgeText}>PROGRAMME MENSUEL</Text>
+              </View>
+              <View style={styles.heroIcon}>
+                <Feather name="book-open" size={20} color={COLORS.blueDark} />
+              </View>
             </View>
             <Text style={styles.heroTitle}>La Bible en 12 mois</Text>
-            <Text style={styles.heroSub}>La progression se base sur les livres reels termines.</Text>
+            <Text style={styles.heroSub}>Avancez livre par livre, avec une reprise directe là où vous en êtes.</Text>
 
             <View style={styles.progressRow}>
               <View style={styles.miniProgressContainer}>
-                <View style={[styles.miniProgressBar, { width: `${progression}%` }]} />
+                <View style={[styles.miniProgressBar, { width: `${currentReadingPercent}%` }]} />
               </View>
-              <Text style={styles.progressStat}>{progression}%</Text>
+              <Text style={styles.progressStat}>{currentReadingPercent}%</Text>
             </View>
+
+            {currentPlanItem && (
+              <View style={styles.currentBookPanel}>
+                <View style={styles.currentBookIcon}>
+                  <Feather name="bookmark" size={17} color={COLORS.gold} />
+                </View>
+                <View style={styles.currentBookBody}>
+                  <Text style={styles.currentBookLabel}>Lecture en cours</Text>
+                  <Text style={styles.currentBookTitle}>
+                    {currentBookName} · Chapitre {getStartChapterForItem(currentPlanItem)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </LinearGradient>
+
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{validatedBooksPercent}%</Text>
+            <Text style={styles.summaryLabel}>Livres validés</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>
+              {currentPlanItem ? `${currentReadCount}/${currentPlanItem.nombreChapitres}` : currentReadCount}
+            </Text>
+            <Text style={styles.summaryLabel}>Chapitres lus</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{moisActuel}</Text>
+            <Text style={styles.summaryLabel}>Mois actif</Text>
           </View>
         </View>
 
@@ -321,7 +413,7 @@ export default function PlanMensuelPremium() {
         )}
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Votre progression</Text>
+          <Text style={styles.sectionTitle}>Votre parcours</Text>
           <View style={styles.lineDecor} />
         </View>
 
@@ -338,9 +430,20 @@ export default function PlanMensuelPremium() {
             const chapterPercent = isCompleted
               ? 100
               : Math.min(chapterProgress?.percent ?? 0, 100);
-            const lastChapter = lastChapterByBook[item.bookId] ?? 1;
-            const startChapter = Math.min(Math.max(lastChapter, 1), item.nombreChapitres);
+            const startChapter = getStartChapterForItem(item);
             const canOpenQuiz = !isCompleted && !isLocked && readCount >= item.nombreChapitres;
+            const statusLabel = isCompleted
+              ? "Terminé"
+              : isCurrent
+                ? "En cours"
+                : isLocked
+                  ? "À venir"
+                  : "Disponible";
+            const resumeLabel = isCompleted
+              ? "Lecture terminée"
+              : isLocked
+                ? "Disponible prochainement"
+                : `Reprendre au chapitre ${startChapter}`;
 
             return (
               <TouchableOpacity
@@ -400,11 +503,29 @@ export default function PlanMensuelPremium() {
                   <Text style={[styles.bookName, (isCurrent || isCompleted) && styles.textWhite]}>
                     {bookName}
                   </Text>
+                  <View style={styles.cardMetaRow}>
+                    <Text style={[styles.statusText, (isCurrent || isCompleted) && styles.textWhiteOpacity]}>
+                      {statusLabel}
+                    </Text>
+                    <Text style={[styles.resumeText, (isCurrent || isCompleted) && styles.resumeTextLight]}>
+                      {resumeLabel}
+                    </Text>
+                  </View>
                   <Text style={[styles.chapterDetail, (isCurrent || isCompleted) && styles.textWhiteOpacity]}>
                     {isCompleted
-                      ? "Livre termine • 100%"
-                      : `${readCount}/${item.nombreChapitres} chapitres lus • ${chapterPercent}%`}
+                      ? "Livre terminé · 100%"
+                      : `${readCount}/${item.nombreChapitres} chapitres lus · ${chapterPercent}%`}
                   </Text>
+                  <View style={[styles.chapterTrack, (isCurrent || isCompleted) && styles.chapterTrackDark]}>
+                    <View
+                      style={[
+                        styles.chapterFill,
+                        { width: `${chapterPercent}%` },
+                        isCurrent && styles.chapterFillActive,
+                        isCompleted && styles.chapterFillCompleted,
+                      ]}
+                    />
+                  </View>
                 </View>
 
                 <View style={styles.actionBox}>
@@ -446,7 +567,7 @@ export default function PlanMensuelPremium() {
                           isCurrent && styles.progressPillTextActive,
                         ]}
                       >
-                        {chapterPercent}%
+                        {isLocked ? `${chapterPercent}%` : `Ch. ${startChapter}`}
                       </Text>
                     </View>
                   )}
@@ -465,7 +586,7 @@ const styles = StyleSheet.create({
   headerSafe: {
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayLight,
+    borderBottomColor: COLORS.border,
   },
   header: {
     flexDirection: "row",
@@ -478,44 +599,103 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 14,
     backgroundColor: COLORS.grayLight,
     justifyContent: "center",
     alignItems: "center",
   },
-  navTitle: { color: COLORS.blueDark, fontSize: 18, fontWeight: "800" },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 40 },
+  navTitle: { color: COLORS.blueDark, fontSize: 18, fontWeight: "900" },
+  scrollContent: {
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
 
   heroCard: {
-    backgroundColor: COLORS.white,
     borderRadius: 24,
-    padding: 24,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: COLORS.grayLight,
+    padding: 20,
+    marginBottom: 14,
+    shadowColor: COLORS.blueDark,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    elevation: 5,
   },
-  heroContent: { width: "100%" },
+  heroContent: { width: "100%", gap: 12 },
+  heroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   badgeLabel: {
-    backgroundColor: COLORS.gold + "20",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 999,
     alignSelf: "flex-start",
-    marginBottom: 12,
   },
-  badgeText: { color: COLORS.gold, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
-  heroTitle: { fontSize: 26, fontWeight: "800", color: COLORS.blueDark },
-  heroSub: { fontSize: 14, color: COLORS.gray, marginTop: 8, lineHeight: 20 },
+  badgeText: { color: COLORS.gold, fontSize: 10, fontWeight: "900" },
+  heroIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroTitle: { fontSize: 28, lineHeight: 34, fontWeight: "900", color: COLORS.white },
+  heroSub: { fontSize: 14, color: COLORS.blueSoft, lineHeight: 21 },
 
-  progressRow: { flexDirection: "row", alignItems: "center", marginTop: 20, gap: 12 },
-  miniProgressContainer: { flex: 1, height: 6, backgroundColor: COLORS.grayLight, borderRadius: 3 },
-  miniProgressBar: { height: 6, backgroundColor: COLORS.gold, borderRadius: 3 },
-  progressStat: { fontSize: 12, fontWeight: "700", color: COLORS.blueDark },
+  progressRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  miniProgressContainer: {
+    flex: 1,
+    height: 8,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  miniProgressBar: { height: 8, backgroundColor: COLORS.gold, borderRadius: 999 },
+  progressStat: { fontSize: 13, fontWeight: "900", color: COLORS.white },
+  currentBookPanel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    padding: 12,
+  },
+  currentBookIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  currentBookBody: { flex: 1 },
+  currentBookLabel: { color: COLORS.blueSoft, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+  currentBookTitle: { color: COLORS.white, fontSize: 15, fontWeight: "900", marginTop: 2 },
+  summaryGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 16,
+  },
+  summaryCard: {
+    flex: 1,
+    minHeight: 78,
+    borderRadius: 18,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 12,
+    justifyContent: "space-between",
+  },
+  summaryValue: { color: COLORS.blueDark, fontSize: 18, fontWeight: "900" },
+  summaryLabel: { color: COLORS.gray, fontSize: 11, fontWeight: "800" },
   delayBanner: {
     backgroundColor: COLORS.white,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
+    borderColor: COLORS.border,
     paddingVertical: 10,
     paddingHorizontal: 12,
     marginTop: -8,
@@ -525,7 +705,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   delayBannerText: { color: COLORS.blueDark, fontSize: 13, fontWeight: "600" },
-
   sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 12 },
   sectionTitle: {
     fontSize: 14,
@@ -534,26 +713,32 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1,
   },
-  lineDecor: { flex: 1, height: 1, backgroundColor: COLORS.grayLight },
+  lineDecor: { flex: 1, height: 1, backgroundColor: COLORS.border },
 
   planContainer: {
-    backgroundColor: COLORS.white,
-    borderRadius: 22,
-    paddingVertical: 8,
+    gap: 10,
   },
   itemCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "transparent",
-    borderRadius: 16,
-    padding: 12,
-    marginHorizontal: 8,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 13,
+    shadowColor: COLORS.blueDark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
   itemCardActive: {
     backgroundColor: COLORS.blueDark,
+    borderColor: COLORS.blueDark,
   },
   itemCardCompleted: {
     backgroundColor: COLORS.blue,
+    borderColor: COLORS.blue,
   },
   itemCardLocked: {
     opacity: 0.45,
@@ -562,7 +747,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 16,
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.goldSoft,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -572,8 +757,50 @@ const styles = StyleSheet.create({
   monthValue: { fontSize: 22, fontWeight: "800", color: COLORS.blueDark },
 
   contentBox: { flex: 1, paddingLeft: 16 },
-  bookName: { fontSize: 18, fontWeight: "700", color: COLORS.blueDark },
+  bookName: { fontSize: 18, fontWeight: "900", color: COLORS.blueDark },
+  cardMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 5,
+  },
+  statusText: {
+    color: COLORS.gold,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  resumeText: {
+    color: COLORS.blueDark,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  resumeTextLight: {
+    color: COLORS.white,
+  },
   chapterDetail: { fontSize: 13, color: COLORS.gray, marginTop: 2 },
+  chapterTrack: {
+    marginTop: 9,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: COLORS.grayLight,
+    overflow: "hidden",
+  },
+  chapterTrackDark: {
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  chapterFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: COLORS.gold,
+  },
+  chapterFillActive: {
+    backgroundColor: COLORS.gold,
+  },
+  chapterFillCompleted: {
+    backgroundColor: COLORS.white,
+  },
 
   actionBox: { paddingRight: 4 },
   progressPill: {

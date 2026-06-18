@@ -1,12 +1,13 @@
 import { COLORS } from "@/src/constants/colors";
 import { useUser } from "@/src/context/UserContext";
 import { supabase } from "@/supabaseClient";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -39,49 +40,44 @@ export default function CommunauteTabPage() {
   });
 
   const isLoggedIn = Boolean(user?.user_id);
-  const isAdmin = user?.isAdmin === true;
 
-  function normalizeText(value: string): string {
+  const normalizeText = useCallback((value: string): string => {
     return value
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
-  }
+  }, []);
 
   function toCommunityLabel(type: CommunityType | null): string {
-    if (type === "jeune") return "Communaute Jeune";
-    if (type === "mariee") return "Communaute des maries";
-    return "Aucune";
+    if (type === "jeune") return "Jeune Chrétien";
+    if (type === "mariee") return "Communauté des mariés";
+    return "Communauté";
   }
 
-  function getEligibleCommunityTypes(
-    situation: string | null,
-    age: number | null
-  ): CommunityType[] {
+  const getEligibleCommunityTypes = useCallback((situation: string | null, age: number | null): CommunityType[] => {
     if (!situation) return [];
     const normalized = normalizeText(situation);
     const result: CommunityType[] = [];
 
-    const isMarried = normalized.includes("marie") || normalized.includes("married");
-    const isSingle = normalized.includes("celibataire") || normalized.includes("single");
-
-    if (isMarried) result.push("mariee");
-    if (isSingle && typeof age === "number" && age >= 15 && age <= 40) {
+    if (normalized.includes("marie") || normalized.includes("married")) result.push("mariee");
+    if (
+      (normalized.includes("celibataire") || normalized.includes("single")) &&
+      typeof age === "number" &&
+      age >= 15 &&
+      age <= 40
+    ) {
       result.push("jeune");
     }
 
     return result;
-  }
+  }, [normalizeText]);
 
   const eligibleTypes = useMemo(
     () => getEligibleCommunityTypes(profile.situation, profile.age),
-    [profile.situation, profile.age]
+    [getEligibleCommunityTypes, profile.situation, profile.age]
   );
 
-  const communityLabel = useMemo(() => {
-    return toCommunityLabel(profile.communityType);
-  }, [profile.communityType]);
-
+  const communityLabel = useMemo(() => toCommunityLabel(profile.communityType), [profile.communityType]);
   const needsChoice = isLoggedIn && (!profile.belongs || !profile.communityType);
 
   useEffect(() => {
@@ -142,14 +138,10 @@ export default function CommunauteTabPage() {
       return;
     }
 
-    Alert.alert(
-      "Connexion requise",
-      "Connectez-vous pour rejoindre une communaute et interagir.",
-      [
-        { text: "Annuler", style: "cancel" },
-        { text: "Se connecter", onPress: () => router.push("/(auth)/login") },
-      ]
-    );
+    Alert.alert("Connexion requise", "Connectez-vous pour continuer.", [
+      { text: "Annuler", style: "cancel" },
+      { text: "Se connecter", onPress: () => router.push("/(auth)/login") },
+    ]);
   }
 
   async function saveCommunityChoice() {
@@ -159,7 +151,7 @@ export default function CommunauteTabPage() {
     }
 
     if (!selectedType) {
-      Alert.alert("Choix requis", "Selectionnez une communaute pour continuer.");
+      Alert.alert("Choix requis", "Sélectionnez une communauté.");
       return;
     }
 
@@ -176,10 +168,7 @@ export default function CommunauteTabPage() {
 
     if (updateResult.error) {
       setSavingChoice(false);
-      Alert.alert(
-        "Mise a jour impossible",
-        "Le choix de communaute n'a pas pu etre enregistre."
-      );
+      Alert.alert("Mise à jour impossible", "Votre choix n'a pas pu être enregistré.");
       return;
     }
 
@@ -192,229 +181,294 @@ export default function CommunauteTabPage() {
           : prev.communityType,
     }));
     setSavingChoice(false);
-    Alert.alert("Enregistre", "Votre communaute a ete mise a jour.");
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.hero}>
-          <View style={styles.heroTop}>
-            <View style={styles.badge}>
-              <Ionicons name="people-outline" size={14} color={COLORS.gold} />
-              <Text style={styles.badgeText}>Espace Communaute</Text>
+        <ImageBackground
+          source={require("@/assets/images/fond3.jpg")}
+          imageStyle={styles.heroImage}
+          style={styles.hero}
+        >
+          <View style={styles.heroOverlay}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Communauté</Text>
+              <Text style={styles.subtitle}>Avançons ensemble dans la foi.</Text>
             </View>
-            {isAdmin && (
-              <View style={styles.adminTag}>
-                <Text style={styles.adminTagText}>Admin</Text>
-              </View>
-            )}
           </View>
-
-          <Text style={styles.title}>Grandissez ensemble</Text>
-          <Text style={styles.subtitle}>
-            Retrouvez votre groupe, suivez les activites et partagez vos temps forts.
-          </Text>
-        </View>
+        </ImageBackground>
 
         {loading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator size="small" color={COLORS.gold} />
-            <Text style={styles.loadingText}>Chargement de votre communaute...</Text>
+          <View style={styles.loading}>
+            <ActivityIndicator color={COLORS.gold} />
+            <Text style={styles.muted}>Chargement...</Text>
           </View>
         ) : (
-          <View style={styles.section}>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Mon statut</Text>
-              <Text style={styles.cardValue}>
-                {isLoggedIn ? (profile.belongs ? "Membre actif" : "Non membre") : "Invite"}
-              </Text>
-              <Text style={styles.cardHint}>Type: {isLoggedIn ? communityLabel : "Connexion requise"}</Text>
+          <View style={styles.communityCard}>
+            <View style={styles.cardTop}>
+              <View style={styles.pill}>
+                <Text style={styles.pillText}>Groupe de Foi</Text>
+              </View>
+              <Pressable
+                style={[styles.joinButton, savingChoice && styles.disabled]}
+                disabled={savingChoice}
+                onPress={() => {
+                  if (!isLoggedIn) {
+                    router.push("/(auth)/login");
+                    return;
+                  }
+                  if (needsChoice && eligibleTypes.length > 0) {
+                    saveCommunityChoice();
+                  }
+                }}
+              >
+                <Text style={styles.joinText}>
+                  {!isLoggedIn ? "Rejoindre" : needsChoice ? "Valider" : "Membre"}
+                </Text>
+              </Pressable>
             </View>
 
-            {isLoggedIn && (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Communautes de votre ressort</Text>
-                {eligibleTypes.length === 0 ? (
-                  <Text style={styles.cardHint}>
-                    Aucune communaute detectee selon votre profil (situation/age). Mettez votre profil a jour.
-                  </Text>
-                ) : (
-                  <View style={styles.choiceList}>
-                    {eligibleTypes.map((type) => {
-                      const active = selectedType === type;
-                      return (
-                        <Pressable
-                          key={type}
-                          style={[styles.choiceBtn, active && styles.choiceBtnActive]}
-                          onPress={() => setSelectedType(type)}
-                        >
-                          <Text style={[styles.choiceText, active && styles.choiceTextActive]}>
-                            {toCommunityLabel(type)}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
+            <Text style={styles.cardTitle}>{isLoggedIn ? communityLabel : "Jeune Chrétien"}</Text>
+            <View style={styles.meta}>
+              <Ionicons name="globe-outline" size={16} color={COLORS.gold} />
+              <Text style={styles.metaText}>{profile.belongs ? "Membre actif" : "Groupe public"} · 1.2k membres</Text>
+            </View>
 
-                {eligibleTypes.length > 0 && (
+            <Text style={styles.description}>
+              Un espace pour grandir dans la foi, partager des témoignages et avancer avec d’autres croyants.
+            </Text>
+
+            {isLoggedIn && needsChoice && eligibleTypes.length > 0 && (
+              <View style={styles.choices}>
+                {eligibleTypes.map((type) => (
                   <Pressable
-                    style={[styles.primaryBtn, savingChoice && styles.primaryBtnDisabled]}
-                    disabled={savingChoice || !selectedType}
-                    onPress={saveCommunityChoice}
+                    key={type}
+                    style={[styles.choice, selectedType === type && styles.choiceActive]}
+                    onPress={() => setSelectedType(type)}
                   >
-                    <Text style={styles.primaryBtnText}>
-                      {savingChoice
-                        ? "Enregistrement..."
-                        : needsChoice
-                        ? "Rejoindre cette communaute"
-                        : "Mettre a jour ma communaute"}
+                    <Text style={[styles.choiceText, selectedType === type && styles.choiceTextActive]}>
+                      {toCommunityLabel(type)}
                     </Text>
                   </Pressable>
-                )}
+                ))}
               </View>
             )}
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Actions rapides</Text>
-              <View style={styles.actionList}>
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={() => requireAuth(() => router.push("/profil"))}
-                >
-                  <Ionicons name="person-circle-outline" size={18} color={COLORS.blueDark} />
-                  <Text style={styles.actionText}>Mon profil</Text>
-                </Pressable>
-
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={() =>
-                    requireAuth(() =>
-                      Alert.alert("Bientot disponible", "Le fil de communaute arrive bientot.")
-                    )
-                  }
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={18} color={COLORS.blueDark} />
-                  <Text style={styles.actionText}>Fil communaute</Text>
-                </Pressable>
-
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={() =>
-                    requireAuth(() =>
-                      Alert.alert("Bientot disponible", "Le calendrier des evenements arrive bientot.")
-                    )
-                  }
-                >
-                  <Ionicons name="calendar-clear-outline" size={18} color={COLORS.blueDark} />
-                  <Text style={styles.actionText}>Evenements</Text>
-                </Pressable>
+            {isLoggedIn && needsChoice && eligibleTypes.length === 0 && (
+              <View style={styles.alertBox}>
+                <Ionicons name="information-circle" size={20} color={COLORS.gray} />
+                <Text style={styles.alertText}>Mettez votre profil à jour pour voir les communautés disponibles.</Text>
               </View>
-            </View>
+            )}
           </View>
         )}
+
+        <View style={styles.section}>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>Espaces partagés</Text>
+            <Pressable onPress={() => requireAuth(() => Alert.alert("Bientôt disponible", "Le fil arrive bientôt."))}>
+              <Text style={styles.seeAll}>Voir tout</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.listCard}>
+            <Action icon="person-circle-outline" text="Mon profil" onPress={() => requireAuth(() => router.push("/profil"))} />
+            <Action
+              icon="chatbubble-outline"
+              text="Fil communauté"
+              onPress={() => requireAuth(() => Alert.alert("Bientôt disponible", "Le fil arrive bientôt."))}
+            />
+            <Action
+              icon="calendar-outline"
+              text="Événements"
+              isLast
+              onPress={() => requireAuth(() => Alert.alert("Bientôt disponible", "Les événements arrivent bientôt."))}
+            />
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+function Action({
+  icon,
+  text,
+  onPress,
+  isLast = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  text: string;
+  onPress: () => void;
+  isLast?: boolean;
+}) {
+  return (
+    <Pressable style={[styles.action, isLast && styles.actionLast]} onPress={onPress}>
+      <View style={styles.actionIcon}>
+        <MaterialCommunityIcons
+          name={icon === "person-circle-outline" ? "account-circle-outline" : icon === "chatbubble-outline" ? "message-outline" : "calendar-outline"}
+          size={22}
+          color={COLORS.blueDark}
+        />
+      </View>
+      <Text style={styles.actionText}>{text}</Text>
+      <View style={styles.actionChevron}>
+        <Ionicons name="chevron-forward" size={16} color={COLORS.gray} />
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FFFFFF" },
+  safe: { flex: 1, backgroundColor: COLORS.grayLight },
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 26,
-    gap: 14,
+    width: "100%",
+    maxWidth: 520,
+    alignSelf: "center",
+    paddingBottom: 30,
   },
   hero: {
-    borderRadius: 18,
+    height: 220,
+    overflow: "hidden",
     backgroundColor: COLORS.blueDark,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    gap: 8,
   },
-  heroTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  heroImage: { opacity: 0.8 },
+  heroOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(16,24,39,0.3)",
+    paddingHorizontal: 20,
+    paddingTop: 40,
   },
-  badge: {
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+  header: {
+    gap: 4,
   },
-  badgeText: { color: COLORS.gold, fontSize: 12, fontWeight: "700" },
-  adminTag: {
-    borderRadius: 999,
-    backgroundColor: COLORS.gold,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  adminTagText: { color: COLORS.blueDark, fontSize: 11, fontWeight: "800" },
-  title: { color: COLORS.white, fontSize: 24, fontWeight: "800" },
-  subtitle: { color: "#D8DFEE", fontSize: 13, lineHeight: 19 },
-  loadingWrap: {
-    borderRadius: 14,
-    backgroundColor: "#F8FAFC",
-    paddingVertical: 24,
-    alignItems: "center",
-    gap: 8,
-  },
-  loadingText: { color: COLORS.gray, fontSize: 13, fontWeight: "600" },
-  section: { gap: 12 },
-  card: {
-    borderRadius: 14,
-    backgroundColor: "#F8FAFC",
-    padding: 12,
-    gap: 8,
-  },
-  cardTitle: { color: COLORS.blueDark, fontSize: 14, fontWeight: "800" },
-  cardValue: { color: COLORS.blueDark, fontSize: 18, fontWeight: "800" },
-  cardHint: { color: COLORS.gray, fontSize: 13 },
-  choiceList: { marginTop: 2, gap: 8 },
-  choiceBtn: {
-    height: 40,
-    borderRadius: 10,
+  title: { color: COLORS.white, fontSize: 30, fontWeight: "900" },
+  subtitle: { color: COLORS.white, fontSize: 14, opacity: 0.9 },
+  loading: {
+    marginTop: -30,
+    marginHorizontal: 18,
+    minHeight: 140,
+    borderRadius: 24,
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: "#CBD5E1",
-    backgroundColor: "#FFFFFF",
+    borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 10,
+    gap: 8,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  choiceBtnActive: {
-    borderColor: COLORS.blueDark,
-    backgroundColor: "#EEF2FF",
+  communityCard: {
+    marginTop: -30,
+    marginHorizontal: 18,
+    borderRadius: 24,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 22,
+    gap: 16,
   },
-  choiceText: { color: COLORS.blueDark, fontSize: 13, fontWeight: "700" },
-  choiceTextActive: { color: COLORS.blueDark },
-  primaryBtn: {
-    marginTop: 10,
-    height: 42,
-    borderRadius: 10,
-    backgroundColor: COLORS.blueDark,
-    alignItems: "center",
-    justifyContent: "center",
+  cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  pill: {
+    borderRadius: 999,
+    backgroundColor: COLORS.grayLight,
     paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  primaryBtnDisabled: { opacity: 0.65 },
-  primaryBtnText: { color: "#FFFFFF", fontSize: 13.5, fontWeight: "800" },
-  actionList: { gap: 8 },
-  actionBtn: {
-    height: 42,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
+  pillText: { color: COLORS.gray, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+  joinButton: {
+    minWidth: 112,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.blueDark,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  disabled: { opacity: 0.65 },
+  joinText: { color: COLORS.white, fontSize: 14, fontWeight: "900" },
+  cardTitle: { color: COLORS.blueDark, fontSize: 28, lineHeight: 34, fontWeight: "900" },
+  meta: { flexDirection: "row", alignItems: "center", gap: 8 },
+  metaText: { color: COLORS.gray, fontSize: 13, fontWeight: "800" },
+  description: { color: COLORS.gray, fontSize: 14, lineHeight: 22, opacity: 0.9 },
+  choices: { gap: 10, marginTop: 4 },
+  choice: {
+    height: 50,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  choiceActive: { backgroundColor: COLORS.blueDark, borderColor: COLORS.blueDark },
+  choiceText: { color: COLORS.blueDark, fontSize: 14, fontWeight: "800" },
+  choiceTextActive: { color: COLORS.white },
+  alertBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 10,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    padding: 12,
+    borderRadius: 12,
+    gap: 10,
   },
-  actionText: { color: COLORS.blueDark, fontSize: 14, fontWeight: "700" },
+  alertText: { flex: 1, color: COLORS.gray, fontSize: 13, lineHeight: 18 },
+  muted: { color: COLORS.gray, fontSize: 14, lineHeight: 20 },
+  section: {
+    paddingHorizontal: 18,
+    marginTop: 26,
+    gap: 12,
+  },
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionTitle: { color: COLORS.blueDark, fontSize: 20, fontWeight: "900" },
+  seeAll: { color: COLORS.blue, fontSize: 13, fontWeight: "900" },
+  listCard: {
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 8,
+  },
+  action: {
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: COLORS.grayLight,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 14,
+  },
+  actionLast: {
+    marginBottom: 0,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  actionText: { flex: 1, color: COLORS.blueDark, fontSize: 15, fontWeight: "800" },
+  actionChevron: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
 });

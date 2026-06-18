@@ -1,13 +1,21 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Audio } from "expo-av";
+import {
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from "expo-audio";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   Share,
@@ -18,16 +26,11 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { getChapters, getVerses } from "@/src/constants/bible";
+import { BIBLE, getChapters, getVerses } from "@/src/constants/bible";
 import {
   getMonthlyReadCountForBook,
   markMonthlyChapterAsRead,
 } from "@/src/services/monthlyChapterProgress";
-import {
-  generateReliableQuizForReadings,
-  type ReliableQuizQuestion,
-} from "@/src/services/quizGenerator";
-import { markDayAsCompleted } from "@/src/services/readingSync";
 import { saveLastReadChapter } from "@/src/stockage/readingPosition";
 import { supabase } from "@/supabaseClient";
 
@@ -48,19 +51,38 @@ type Verse = {
   text: string;
 };
 
-type QuizCorrection = {
-  id: string;
-  prompt: string;
-  verseReference: string;
-  userAnswer: string;
-  correctAnswer: string;
-  isCorrect: boolean;
-};
-
 /* ================= CONSTANTS ================= */
 
 const STORAGE_KEY = "VERSE_ACTIONS_V2";
 const ANNUAL_DAY_READ_KEY = "ANNUAL_DAY_READ_V1";
+
+type MonthlyPlanItem = {
+  mois: number;
+  bookId: string;
+  nombreChapitres: number;
+};
+
+function buildMonthlyPlanItems(): MonthlyPlanItem[] {
+  const livres = Object.entries(BIBLE);
+  const livresParMois = Math.ceil(livres.length / 12);
+  const plan: MonthlyPlanItem[] = [];
+  let index = 0;
+
+  for (let mois = 1; mois <= 12; mois++) {
+    if (index >= livres.length) break;
+    const [monthlyBookId, contenu] = livres[index] as [string, Record<string, unknown>];
+    plan.push({
+      mois,
+      bookId: monthlyBookId,
+      nombreChapitres: Object.keys(contenu).length,
+    });
+    index += livresParMois;
+  }
+
+  return plan;
+}
+
+const MONTHLY_PLAN_ITEMS = buildMonthlyPlanItems();
 
 /* ================= COLORS ================= */
 
@@ -103,6 +125,11 @@ export default function VersesPage() {
   const safeTotalChapters = (Array.isArray(totalChapters) ? totalChapters[0] : totalChapters) ?? "";
   const safeDay = (Array.isArray(day) ? day[0] : day) ?? "";
   const safeTotalReadings = (Array.isArray(totalReadings) ? totalReadings[0] : totalReadings) ?? "";
+  const monthlyPlanItem = MONTHLY_PLAN_ITEMS.find((item) => item.bookId === safeBookId);
+  const [activePlanType, setActivePlanType] = useState("");
+  const effectivePlanType = safePlanType || activePlanType;
+  const effectiveMonth = safeMonth || (monthlyPlanItem ? String(monthlyPlanItem.mois) : "");
+  const effectiveTotalChapters = safeTotalChapters || (monthlyPlanItem ? String(monthlyPlanItem.nombreChapitres) : "");
   const displayBookName =
     safeBookName ||
     (safeBookId ? safeBookId.charAt(0).toUpperCase() + safeBookId.slice(1) : "");
@@ -122,6 +149,9 @@ export default function VersesPage() {
 
   const [verses, setVerses] = useState<Verse[]>([]);
   const [loading, setLoading] = useState(true);
+  const chapterReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const monthlyReadInFlightRef = useRef<Set<string>>(new Set());
+  const monthlyReadDoneRef = useRef<Set<string>>(new Set());
 
   const [actions, setActions] = useState<VerseActionsMap>({});
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -131,17 +161,116 @@ export default function VersesPage() {
 
   const [colorModalVisible, setColorModalVisible] = useState(false);
 
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [audioUri, setAudioUri] = useState<string | null>(null);
-  const [quizVisible, setQuizVisible] = useState(false);
-  const [quizQuestions, setQuizQuestions] = useState<ReliableQuizQuestion[]>([]);
-  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
-  const [quizLoading, setQuizLoading] = useState(false);
-  const [quizResult, setQuizResult] = useState<{
-    score: number;
-    passed: boolean;
-    corrections: QuizCorrection[];
-  } | null>(null);
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(audioRecorder);
+
+  const markCurrentMonthlyChapterAsRead = useCallback(
+    async (options: { showCompletionAlert?: boolean } = {}) => {
+      if (effectivePlanType !== "mensuel" || !safeBookId || !safeChapterId) return;
+      if (!safePlanType && !monthlyPlanItem) return;
+
+      const chapter = Number(safeChapterId);
+      const monthNumber = Number(effectiveMonth);
+      const totalFromParams = Number(effectiveTotalChapters);
+      const totalFromBible = getChapters(safeBookId).length;
+      const total = Number.isFinite(totalFromParams) && totalFromParams > 0 ? totalFromParams : totalFromBible;
+      if (!Number.isFinite(chapter) || chapter < 1) return;
+
+      const progressKey = `${safeBookId}:${chapter}`;
+      if (monthlyReadDoneRef.current.has(progressKey) || monthlyReadInFlightRef.current.has(progressKey)) {
+        return;
+      }
+
+      monthlyReadInFlightRef.current.add(progressKey);
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
+        if (!user) return;
+
+        await markMonthlyChapterAsRead(user.id, safeBookId, chapter);
+        monthlyReadDoneRef.current.add(progressKey);
+        const nextSavedChapter = chapter >= total ? total + 1 : chapter + 1;
+        await saveLastReadChapter(user.id, safeBookId, nextSavedChapter);
+
+        const readCount = await getMonthlyReadCountForBook(user.id, safeBookId);
+        if (!Number.isFinite(monthNumber) || monthNumber < 1 || monthNumber > 12) return;
+        if (!Number.isFinite(total) || total <= 0) return;
+        if (readCount < total) return;
+
+        if (options.showCompletionAlert !== false) {
+          Alert.alert(
+            "Livre terminé",
+            "Votre livre du mois est terminé. Passez au quiz pour valider ce mois.",
+            [
+              {
+                text: "Retour au plan",
+                style: "cancel",
+                onPress: () => router.replace("/meditation/lecture/mensuel" as any),
+              },
+              {
+                text: "Faire le quiz",
+                onPress: () =>
+                  router.push({
+                    pathname: "/meditation/lecture/mensuel-quiz",
+                    params: {
+                      bookId: safeBookId,
+                      bookName: displayBookName,
+                      month: String(monthNumber),
+                    },
+                  }),
+              },
+            ]
+          );
+        }
+      } finally {
+        monthlyReadInFlightRef.current.delete(progressKey);
+      }
+    },
+    [
+      displayBookName,
+      effectiveMonth,
+      effectivePlanType,
+      effectiveTotalChapters,
+      monthlyPlanItem,
+      router,
+      safeBookId,
+      safeChapterId,
+      safePlanType,
+    ]
+  );
+
+  useEffect(() => {
+    if (safePlanType) {
+      setActivePlanType("");
+      return;
+    }
+
+    let isActive = true;
+
+    async function loadActivePlanType() {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("plan_lecture_utilisateur")
+        .select("type_plan")
+        .eq("utilisateur_id", user.id)
+        .order("date_creation", { ascending: false })
+        .limit(1);
+
+      const planName = data?.[0]?.type_plan;
+      if (!isActive) return;
+      setActivePlanType(planName === "mensuel" || planName === "annuel" ? planName : "");
+    }
+
+    loadActivePlanType();
+
+    return () => {
+      isActive = false;
+    };
+  }, [safePlanType]);
 
   /* ================= LOAD ================= */
 
@@ -159,154 +288,28 @@ export default function VersesPage() {
 
       setVerses(parsed);
       setLoading(false);
+
+      // Marquer le chapitre comme lu après 3 secondes (programme mensuel)
+      if (chapterReadTimerRef.current) clearTimeout(chapterReadTimerRef.current);
+      if (effectivePlanType === "mensuel") {
+        chapterReadTimerRef.current = setTimeout(() => {
+          markCurrentMonthlyChapterAsRead();
+        }, 3000);
+      }
     };
 
     load();
-  }, [safeBookId, safeChapterId]);
+
+    return () => {
+      if (chapterReadTimerRef.current) clearTimeout(chapterReadTimerRef.current);
+    };
+  }, [effectivePlanType, markCurrentMonthlyChapterAsRead, safeBookId, safeChapterId]);
 
   useEffect(() => {
     if (!safeVerse || !safeBookId || !safeChapterId) return;
     if (!verses.some((v) => v.number === safeVerse)) return;
     setSelectedKey(`${safeBookId}-${safeChapterId}-${safeVerse}`);
   }, [safeBookId, safeChapterId, safeVerse, verses]);
-
-  useEffect(() => {
-    const syncMonthlyProgress = async () => {
-      if (safePlanType !== "mensuel" || !safeBookId || !safeChapterId) return;
-
-      const month = Number(safeMonth);
-      const total = Number(safeTotalChapters);
-      if (!Number.isFinite(month) || month < 1 || month > 12) return;
-      if (!Number.isFinite(total) || total <= 0) return;
-
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-      if (!user) return;
-
-      await markMonthlyChapterAsRead(user.id, safeBookId, Number(safeChapterId));
-      const readCount = await getMonthlyReadCountForBook(user.id, safeBookId);
-      if (readCount >= total) {
-        const { data: validated } = await supabase
-          .from("progression_lecture")
-          .select("numero")
-          .eq("utilisateur_id", user.id)
-          .eq("plan", "mensuel")
-          .eq("numero", month)
-          .eq("valide", true)
-          .maybeSingle();
-        if (!validated) {
-          Alert.alert(
-            "Livre termine",
-            "Votre livre est termine. Passez au quiz de validation.",
-            [
-              { text: "Plus tard", style: "cancel" },
-              {
-                text: "Passer au quiz",
-                onPress: () =>
-                  router.push({
-                    pathname: "/meditation/lecture/mensuel-quiz",
-                    params: {
-                      bookId: safeBookId,
-                      bookName: displayBookName,
-                      month: String(month),
-                    },
-                  }),
-              },
-            ]
-          );
-        }
-      }
-    };
-
-    syncMonthlyProgress();
-  }, [safeBookId, safeChapterId, safeMonth, safePlanType, safeTotalChapters]);
-
-  function buildReadingsForWholeBook() {
-    const chapters = getChapters(safeBookId)
-      .map((chapter) => Number(chapter))
-      .filter((chapter) => Number.isFinite(chapter) && chapter >= 1);
-    return chapters.map((chapter) => ({ bookId: safeBookId, chapter }));
-  }
-
-  function ensureMinimumQuestions(
-    questions: ReliableQuizQuestion[],
-    minCount: number
-  ): ReliableQuizQuestion[] {
-    if (questions.length >= minCount) return questions.slice(0, minCount);
-    if (questions.length === 0) return [];
-
-    const expanded: ReliableQuizQuestion[] = [];
-    let idx = 0;
-    while (expanded.length < minCount) {
-      const base = questions[idx % questions.length];
-      expanded.push({
-        ...base,
-        id: `${base.id}-dup-${idx}`,
-      });
-      idx++;
-    }
-    return expanded;
-  }
-
-  function ouvrirQuizValidationLivre() {
-    if (!safeBookId) return;
-    const readings = buildReadingsForWholeBook();
-    const generated = generateReliableQuizForReadings(readings, 60);
-    const questions = ensureMinimumQuestions(generated, 20);
-    if (questions.length < 20) {
-      Alert.alert("Quiz indisponible", "Impossible de generer un quiz de 20 questions.");
-      return;
-    }
-    setQuizQuestions(questions);
-    setQuizAnswers({});
-    setQuizResult(null);
-    setQuizVisible(true);
-  }
-
-  async function soumettreQuizLivre() {
-    if (quizQuestions.some((q) => quizAnswers[q.id] === undefined)) {
-      Alert.alert("Quiz incomplet", "Repondez aux 20 questions avant de valider.");
-      return;
-    }
-
-    const month = Number(safeMonth);
-    if (!Number.isFinite(month) || month < 1 || month > 12) {
-      Alert.alert("Erreur", "Mois invalide.");
-      return;
-    }
-
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
-    if (!user) return;
-
-    const total = quizQuestions.length;
-    const correctCount = quizQuestions.filter((q) => quizAnswers[q.id] === q.correctAnswer).length;
-    const score = Math.round((correctCount / total) * 100);
-    const passed = score >= 85;
-    const corrections: QuizCorrection[] = quizQuestions.map((q) => ({
-      id: q.id,
-      prompt: q.prompt,
-      verseReference: q.verseReference,
-      userAnswer: quizAnswers[q.id] ?? "-",
-      correctAnswer: q.correctAnswer,
-      isCorrect: quizAnswers[q.id] === q.correctAnswer,
-    }));
-    setQuizResult({ score, passed, corrections });
-
-    if (!passed) {
-      Alert.alert("Score insuffisant", `Vous avez ${score}%. Il faut 85% minimum.`);
-      return;
-    }
-
-    setQuizLoading(true);
-    try {
-      await markDayAsCompleted(user.id, "mensuel", month);
-      setQuizVisible(false);
-      Alert.alert("Livre valide", `Score ${score}% - livre valide avec succes.`);
-    } finally {
-      setQuizLoading(false);
-    }
-  }
 
   useEffect(() => {
     const syncAnnualProgress = async () => {
@@ -384,26 +387,27 @@ export default function VersesPage() {
   /* ================= AUDIO ================= */
 
   const startRecording = async () => {
-    await Audio.requestPermissionsAsync();
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
+    const permission = await AudioModule.requestRecordingPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Microphone refuse", "Autorisez le microphone pour enregistrer une note vocale.");
+      return;
+    }
+
+    await setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
     });
 
-    const rec = new Audio.Recording();
-    await rec.prepareToRecordAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
-    await rec.startAsync();
-    setRecording(rec);
+    await audioRecorder.prepareToRecordAsync();
+    audioRecorder.record();
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
-    await recording.stopAndUnloadAsync();
-    const uri = recording.getURI();
-    setRecording(null);
-    if (uri) setAudioUri(uri);
+    if (!recorderState.isRecording) return;
+    await audioRecorder.stop();
+    if (audioRecorder.uri) {
+      setAudioUri(audioRecorder.uri);
+    }
   };
 
   /* ================= ACTIONS ================= */
@@ -422,21 +426,40 @@ export default function VersesPage() {
     setSelectedKey(null);
   };
 
-  const goToChapter = (target: number) => {
+  const handleChapterScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const reachedBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 96;
+    // Marquer immédiatement si l'utilisateur scrolle jusqu'en bas (programme mensuel)
+    if (reachedBottom && effectivePlanType === "mensuel") {
+      if (chapterReadTimerRef.current) clearTimeout(chapterReadTimerRef.current);
+      markCurrentMonthlyChapterAsRead();
+    }
+  };
+
+  const goToChapter = async (target: number) => {
     if (!safeBookId) return;
+    if (target > currentChapter) {
+      await markCurrentMonthlyChapterAsRead({ showCompletionAlert: false });
+    }
     router.replace({
       pathname: "/bible/[bookId]/[chapterId]",
       params: {
         bookId: safeBookId,
         bookName: displayBookName,
         chapterId: String(target),
-        ...(safePlanType ? { planType: safePlanType } : {}),
-        ...(safeMonth ? { month: safeMonth } : {}),
-        ...(safeTotalChapters ? { totalChapters: safeTotalChapters } : {}),
+        ...(effectivePlanType ? { planType: effectivePlanType } : {}),
+        ...(effectiveMonth ? { month: effectiveMonth } : {}),
+        ...(effectiveTotalChapters ? { totalChapters: effectiveTotalChapters } : {}),
         ...(safeDay ? { day: safeDay } : {}),
         ...(safeTotalReadings ? { totalReadings: safeTotalReadings } : {}),
       },
     });
+  };
+
+  const goBack = async () => {
+    if (chapterReadTimerRef.current) clearTimeout(chapterReadTimerRef.current);
+    await markCurrentMonthlyChapterAsRead({ showCompletionAlert: false });
+    router.back();
   };
 
   /* ================= UI ================= */
@@ -446,7 +469,7 @@ export default function VersesPage() {
       <SafeAreaView style={styles.safe} edges={["top"]}>
         {/* HEADER */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.headerIconButton}>
+          <Pressable onPress={goBack} style={styles.headerIconButton}>
             <Ionicons name="chevron-back" size={22} color={COLORS.primary} />
           </Pressable>
 
@@ -492,6 +515,8 @@ export default function VersesPage() {
               styles.body,
               { paddingBottom: selectedKey ? 90 + insets.bottom : 20 },
             ]}
+            onScroll={handleChapterScroll}
+            scrollEventThrottle={120}
             showsVerticalScrollIndicator={false}
           >
             {verses.map((v) => {
@@ -603,16 +628,16 @@ export default function VersesPage() {
             {/* 🎤 NOTE VOCALE */}
             <Pressable
               style={styles.audioBtn}
-              onPress={recording ? stopRecording : startRecording}
+              onPress={recorderState.isRecording ? stopRecording : startRecording}
             >
               <Ionicons
-                name={recording ? "stop" : "mic"}
+                name={recorderState.isRecording ? "stop" : "mic"}
                 size={18}
                 color="#FFF"
               />
               <Text style={styles.audioText}>
-                {recording
-                  ? "Arrêter l’enregistrement"
+                {recorderState.isRecording
+                  ? "Arrêter l'enregistrement"
                   : audioUri
                   ? "Réenregistrer"
                   : "Note vocale"}
@@ -687,66 +712,6 @@ export default function VersesPage() {
         </Pressable>
       </Modal>
 
-      <Modal visible={quizVisible} transparent animationType="slide">
-        <View style={styles.quizOverlay}>
-          <View style={styles.quizCard}>
-            <Text style={styles.quizTitle}>Validation du livre</Text>
-            <Text style={styles.quizSubtitle}>
-              Repondez aux 20 questions pour valider ce livre.
-            </Text>
-
-            <ScrollView style={styles.quizList} contentContainerStyle={styles.quizListContent}>
-              {quizQuestions.map((q, index) => {
-                const selected = quizAnswers[q.id];
-                return (
-                  <View key={q.id} style={styles.quizItem}>
-                    <Text style={styles.quizQuestion}>{index + 1}. {q.prompt}</Text>
-                    <Text style={styles.quizRef}>{q.verseReference}</Text>
-                    <Text style={styles.quizVerse}>{q.verseWithBlank}</Text>
-                    <View style={styles.quizOptionsRow}>
-                      {q.options.map((opt) => {
-                        const active = selected === opt;
-                        return (
-                          <Pressable
-                            key={`${q.id}-${opt}`}
-                            style={[styles.quizOption, active && styles.quizOptionActive]}
-                            onPress={() => setQuizAnswers((prev) => ({ ...prev, [q.id]: opt }))}
-                          >
-                            <Text style={[styles.quizOptionText, active && styles.quizOptionTextActive]}>
-                              {opt}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
-
-            {quizResult && (
-              <Text style={styles.quizScoreText}>
-                Resultat: {quizResult.score}% {quizResult.passed ? "(Valide)" : "(Non valide)"}
-              </Text>
-            )}
-
-            <View style={styles.quizActions}>
-              <Pressable style={styles.quizCancel} onPress={() => setQuizVisible(false)}>
-                <Text style={styles.quizCancelText}>Fermer</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.quizValidate, quizLoading && styles.quizValidateDisabled]}
-                disabled={quizLoading}
-                onPress={soumettreQuizLivre}
-              >
-                <Text style={styles.quizValidateText}>
-                  {quizLoading ? "Validation..." : "Valider le livre"}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -1003,86 +968,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  quizOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(15,23,42,0.35)",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 24,
-  },
-  quizCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 14,
-    maxHeight: "92%",
-  },
-  quizTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
-  quizSubtitle: {
-    fontSize: 13,
-    color: COLORS.gray,
-    marginTop: 4,
-    marginBottom: 10,
-  },
-  quizList: { maxHeight: 420 },
-  quizListContent: { paddingBottom: 8 },
-  quizItem: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 10,
-    backgroundColor: COLORS.white,
-  },
-  quizQuestion: { color: COLORS.primary, fontSize: 13, fontWeight: "700", marginBottom: 4 },
-  quizRef: { color: COLORS.gray, fontSize: 12, marginBottom: 4 },
-  quizVerse: { color: COLORS.primary, fontSize: 13, marginBottom: 8, fontStyle: "italic" },
-  quizOptionsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  quizOption: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: "#F8FAFC",
-  },
-  quizOptionActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  quizOptionText: { color: COLORS.primary, fontWeight: "700", fontSize: 12 },
-  quizOptionTextActive: { color: COLORS.white },
-  quizScoreText: {
-    marginTop: 4,
-    marginBottom: 8,
-    color: COLORS.primary,
-    fontWeight: "700",
-    fontSize: 13,
-  },
-  quizActions: { flexDirection: "row", gap: 10, marginTop: 4 },
-  quizCancel: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 10,
-    height: 44,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  quizCancelText: { color: COLORS.gray, fontWeight: "600" },
-  quizValidate: {
-    flex: 1,
-    borderRadius: 10,
-    height: 44,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.primary,
-  },
-  quizValidateDisabled: { opacity: 0.65 },
-  quizValidateText: { color: COLORS.white, fontWeight: "700" },
 });
-
-

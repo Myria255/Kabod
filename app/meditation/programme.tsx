@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   Alert,
   Pressable,
@@ -46,9 +47,9 @@ type StoredProgrammeState = {
 const STORAGE_PREFIX = "PROGRAMME_JOURNALIER_V1";
 const WEEK_LABELS = ["L", "M", "M", "J", "V", "S", "D"];
 const MIN_SECONDS_REQUIRED: Record<StepId, number> = {
-  lecture: 45,
+  lecture: 0,
   note: 0,
-  priere: 60,
+  priere: 0,
 };
 
 const BASE_STEPS: ProgramStep[] = [
@@ -274,7 +275,7 @@ function parseVerseReference(reference?: string): {
   verse: string;
 } | null {
   if (!reference) return null;
-  const match = reference.trim().match(/^(.*)\s+(\d+):(\d+)$/);
+  const match = reference.trim().match(/^(.*)\s+(\d+):([\d-]+)$/);
   if (!match) return null;
   const bookId = match[1].trim();
   const chapterId = match[2].trim();
@@ -309,53 +310,55 @@ export default function ProgrammePage() {
   const [initialized, setInitialized] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const bootstrap = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const identity = user?.id ?? "guest";
-      if (user?.id) {
-        const profile = await supabase
-          .from("users_profile")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (!profile.error && profile.data?.id) {
-          setProfileId(profile.data.id);
+  useFocusEffect(
+    useCallback(() => {
+      const bootstrap = async () => {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const identity = user?.id ?? "guest";
+        if (user?.id) {
+          const profile = await supabase
+            .from("users_profile")
+            .select("id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (!profile.error && profile.data?.id) {
+            setProfileId(profile.data.id);
+          }
         }
-      }
-      const key = `${STORAGE_PREFIX}:${identity}`;
-      setStorageKey(key);
+        const key = `${STORAGE_PREFIX}:${identity}`;
+        setStorageKey(key);
 
-      const raw = await AsyncStorage.getItem(key);
-      if (!raw) {
-        setInitialized(true);
-        return;
-      }
+        const raw = await AsyncStorage.getItem(key);
+        if (!raw) {
+          setInitialized(true);
+          return;
+        }
 
-      try {
-        const parsed: unknown = JSON.parse(raw);
-        if (isStoredProgrammeState(parsed)) {
-          setProgressMap(parsed.progressMap ?? {});
-          setProgramMap(parsed.programMap ?? {});
-          setActionMap(parsed.actionMap ?? {});
-        } else {
-          setProgressMap((parsed as ProgramProgressMap) ?? {});
+        try {
+          const parsed: unknown = JSON.parse(raw);
+          if (isStoredProgrammeState(parsed)) {
+            setProgressMap(parsed.progressMap ?? {});
+            setProgramMap(parsed.programMap ?? {});
+            setActionMap(parsed.actionMap ?? {});
+          } else {
+            setProgressMap((parsed as ProgramProgressMap) ?? {});
+            setProgramMap({});
+            setActionMap({});
+          }
+        } catch {
+          setProgressMap({});
           setProgramMap({});
           setActionMap({});
+        } finally {
+          setInitialized(true);
         }
-      } catch {
-        setProgressMap({});
-        setProgramMap({});
-        setActionMap({});
-      } finally {
-        setInitialized(true);
-      }
-    };
+      };
 
-    bootstrap();
-  }, []);
+      bootstrap();
+    }, [])
+  );
 
   const selectedDate = useMemo(() => {
     const [y, m, d] = selectedDateKey.split("-").map(Number);

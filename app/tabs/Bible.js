@@ -1,19 +1,19 @@
 // app/tabs/Bible.js
-import React, { useState, useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import { useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
   ActivityIndicator,
   Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons'; 
-import { getChapter } from '../services/bibleService';
-import Config from 'react-native-config';
+import { getChapter } from '../../src/services/bibleService';
 
 // === LISTE COMPLÈTE DES LIVRES (66) ===
 const BIBLE_BOOKS = [
@@ -60,8 +60,7 @@ export default function Bible() {
   const [selectedChapter, setSelectedChapter] = useState(null);
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
-  const API_KEY = Config.BIBLE_API_KEY;
-
+  const API_KEY = Constants.expoConfig?.extra?.BIBLE_API_KEY;
   // === RECHERCHE EN TEMPS RÉEL ===
   const filteredBooks = useMemo(() => {
     if (!search.trim()) return BIBLE_BOOKS;
@@ -213,8 +212,8 @@ export default function Bible() {
 
 // === STYLES IMPECCABLES ===
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: '#f8f9fa',
   },
   searchWrapper: {
@@ -238,11 +237,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#e3f2fd',
   },
-  searchInput: { 
-    flex: 1, 
-    fontSize: 17, 
-    marginLeft: 12, 
-    color: '#1a1a1a', 
+  searchInput: {
+    flex: 1,
+    fontSize: 17,
+    marginLeft: 12,
+    color: '#1a1a1a',
     fontWeight: '500',
   },
   clearButton: {
@@ -269,20 +268,20 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     flex: 1,
   },
-  headerTitle: { 
-    fontSize: 22, 
-    fontWeight: '700', 
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
     color: '#1a1a1a',
     letterSpacing: -0.3,
   },
-  headerSubtitle: { 
-    fontSize: 14, 
-    color: '#666', 
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#666',
     marginTop: 3,
     fontWeight: '500',
   },
-  list: { 
-    paddingHorizontal: 16, 
+  list: {
+    paddingHorizontal: 16,
     paddingTop: 4,
     paddingBottom: 20,
   },
@@ -296,13 +295,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     borderRadius: 10,
   },
-  bookText: { 
-    fontSize: 17, 
-    fontWeight: '500', 
+  bookText: {
+    fontSize: 17,
+    fontWeight: '500',
     color: '#1a1a1a',
     letterSpacing: 0.1,
   },
-  grid: { 
+  grid: {
     padding: 14,
     paddingTop: 8,
   },
@@ -323,13 +322,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  chapterText: { 
-    fontSize: 17, 
-    fontWeight: '700', 
+  chapterText: {
+    fontSize: 17,
+    fontWeight: '700',
     color: '#87CEEB',
   },
-  verses: { 
-    paddingHorizontal: 16, 
+  verses: {
+    paddingHorizontal: 16,
     paddingBottom: 24,
     paddingTop: 4,
   },
@@ -346,44 +345,44 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  verseNumber: { 
-    fontWeight: '700', 
-    color: '#87CEEB', 
+  verseNumber: {
+    fontWeight: '700',
+    color: '#87CEEB',
     width: 38,
     fontSize: 16,
   },
-  verseText: { 
-    flex: 1, 
-    fontSize: 16.5, 
-    lineHeight: 26, 
+  verseText: {
+    flex: 1,
+    fontSize: 16.5,
+    lineHeight: 26,
     color: '#2c2c2c',
     letterSpacing: 0.2,
     fontWeight: '400',
   },
-  backLink: { 
+  backLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start', 
+    alignSelf: 'flex-start',
     marginVertical: 16,
     paddingVertical: 10,
     paddingHorizontal: 14,
     backgroundColor: '#f0f9ff',
     borderRadius: 10,
   },
-  backText: { 
-    color: '#87CEEB', 
-    fontSize: 15, 
-    fontWeight: '600', 
+  backText: {
+    color: '#87CEEB',
+    fontSize: 15,
+    fontWeight: '600',
     marginLeft: 6,
   },
-  empty: { 
-    textAlign: 'center', 
-    marginTop: 80, 
-    color: '#999', 
+  empty: {
+    textAlign: 'center',
+    marginTop: 80,
+    color: '#999',
     fontSize: 16,
     fontWeight: '500',
   },
-  loader: { 
+  loader: {
     marginTop: 40,
   },
 });

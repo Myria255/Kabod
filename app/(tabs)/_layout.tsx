@@ -1,75 +1,100 @@
 import { COLORS } from "@/src/constants/colors";
-import { useUser } from "@/src/context/UserContext";
-import { FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
-  const { user } = useUser();
-  const isAdmin = user?.isAdmin === true;
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 8);
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: COLORS.gold,
-        tabBarInactiveTintColor: "#C7CBEA",
+        tabBarInactiveTintColor: "rgba(255,255,255,0.58)",
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: "800",
+          marginTop: 2,
+        },
+        tabBarIconStyle: {
+          marginTop: 3,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
+        },
         tabBarStyle: {
+          height: 62 + bottomInset,
+          paddingTop: 7,
+          paddingBottom: bottomInset,
           backgroundColor: COLORS.blueDark,
-          borderTopColor: COLORS.gold,
           borderTopWidth: 1,
+          borderTopColor: "rgba(255,255,255,0.08)",
+          shadowColor: COLORS.blueDark,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: Platform.OS === "ios" ? 0.06 : 0,
+          shadowRadius: 10,
+          elevation: 8,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: isAdmin ? "Dashboard" : "Accueil",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+          title: "Accueil",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "home" : "home-outline"} size={21} color={color} />
           ),
         }}
       />
 
       <Tabs.Screen
-        name="meditation"
+        name="bibliotheque"
         options={{
-          title: "Meditation & Priere",
-          tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="praying-hands" size={size} color={color} />
+          title: "Bible",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "book" : "book-outline"} size={21} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="guidance"
+        options={{
+          title: "Guidance",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "sparkles" : "sparkles-outline"} size={21} color={color} />
           ),
         }}
       />
 
+
       <Tabs.Screen
-        name="podcast"
+        name="priere"
         options={{
-          title: "Podcast",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="mic-outline" size={size} color={color} />
+          title: "Prière",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome5 name="praying-hands" size={18} color={color} />
           ),
         }}
       />
+
 
       <Tabs.Screen
         name="communaute"
         options={{
-          title: "Communaute",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
+          title: "Communauté",
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="account-group" size={23} color={color} />
           ),
         }}
       />
 
-      <Tabs.Screen
-        name="admin"
-        options={{
-          href: isAdmin ? "/admin" : null,
-          title: "Centre",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="meditation" options={{ href: null }} />
+      <Tabs.Screen name="podcast" options={{ href: null }} />
+      <Tabs.Screen name="admin" options={{ href: null }} />
     </Tabs>
   );
 }

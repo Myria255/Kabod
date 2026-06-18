@@ -1,16 +1,21 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+﻿import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getLatestAdminPrayer, type AdminPrayerRecord } from "@/src/services/adminPrayerSupabase";
 import { COLORS } from "@/src/constants/colors";
+import {
+  getLatestDailyPrayerTopic,
+  type DailyPrayerTopicRecord,
+} from "@/src/services/dailyPrayerTopicSupabase";
 import { supabase } from "@/supabaseClient";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
+  Pressable,
+  ScrollView,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -78,6 +83,8 @@ export default function PrierePage() {
   const [storageKey, setStorageKey] = useState<string | null>(null);
   const [remaining, setRemaining] = useState(180);
   const [running, setRunning] = useState(false);
+  const [adminPrayer, setAdminPrayer] = useState<AdminPrayerRecord | null>(null);
+  const [dailyTopic, setDailyTopic] = useState<DailyPrayerTopicRecord | null>(null);
 
   const prayerOfDay = useMemo(() => {
     const seed = dateSeed(new Date());
@@ -98,6 +105,18 @@ export default function PrierePage() {
         if (raw) {
           const parsed = JSON.parse(raw) as string[];
           setSubjects(Array.isArray(parsed) ? parsed : []);
+        }
+
+        try {
+          const [storedAdminPrayer, storedDailyTopic] = await Promise.all([
+            getLatestAdminPrayer("published"),
+            getLatestDailyPrayerTopic("published"),
+          ]);
+          setAdminPrayer(storedAdminPrayer);
+          setDailyTopic(storedDailyTopic);
+        } catch {
+          setAdminPrayer(null);
+          setDailyTopic(null);
         }
       } finally {
         setLoading(false);
@@ -163,6 +182,39 @@ export default function PrierePage() {
           <Text style={styles.heroVerse}>{prayerOfDay.verse}</Text>
           <Text style={styles.heroText}>{prayerOfDay.text}</Text>
         </View>
+
+        {adminPrayer && (
+          <View style={styles.adminPrayerCard}>
+            <View style={styles.adminPrayerHeader}>
+              <View style={styles.adminPrayerIcon}>
+                <Ionicons name="document-text-outline" size={20} color="#167E67" />
+              </View>
+              <View style={styles.adminPrayerBody}>
+                <Text style={styles.sectionTitle}>Priere de l'administrateur</Text>
+                <Text style={styles.adminPrayerTitle}>{adminPrayer.title}</Text>
+                <Text style={styles.adminPrayerVerse}>{adminPrayer.verseReference}</Text>
+              </View>
+            </View>
+            <Text style={styles.adminPrayerText}>{adminPrayer.verseText}</Text>
+            <Text style={styles.adminPrayerContent}>{adminPrayer.content}</Text>
+          </View>
+        )}
+
+        {dailyTopic && (
+          <View style={styles.dailyTopicCard}>
+            <View style={styles.dailyTopicHeader}>
+              <View style={styles.dailyTopicIcon}>
+                <Ionicons name="sunny-outline" size={20} color={COLORS.gold} />
+              </View>
+              <View style={styles.dailyTopicBody}>
+                <Text style={styles.sectionTitle}>Sujet de priere journalier</Text>
+                <Text style={styles.dailyTopicTitle}>{dailyTopic.title}</Text>
+                <Text style={styles.dailyTopicTheme}>{dailyTopic.theme}</Text>
+              </View>
+            </View>
+            <Text style={styles.dailyTopicMessage}>{dailyTopic.message}</Text>
+          </View>
+        )}
 
         <View style={styles.timerCard}>
           <Text style={styles.sectionTitle}>Temps de priere</Text>
@@ -252,6 +304,57 @@ const styles = StyleSheet.create({
   heroTitle: { marginTop: 6, color: COLORS.white, fontSize: 22, fontWeight: "800" },
   heroVerse: { marginTop: 4, color: COLORS.gold, fontSize: 13, fontWeight: "700" },
   heroText: { marginTop: 10, color: "#E2E8F0", fontSize: 14, lineHeight: 22 },
+  adminPrayerCard: {
+    backgroundColor: "#DDF7F1",
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#BEEBDD",
+    shadowColor: "#0B3B30",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 2,
+    gap: 12,
+  },
+  adminPrayerHeader: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  adminPrayerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#8EDFCC",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  adminPrayerBody: { flex: 1, gap: 4 },
+  adminPrayerTitle: { color: COLORS.blueDark, fontSize: 15, fontWeight: "800" },
+  adminPrayerVerse: { color: "#167E67", fontSize: 13, fontWeight: "700" },
+  adminPrayerText: { color: "#376F64", fontSize: 13, lineHeight: 20, fontStyle: "italic" },
+  adminPrayerContent: { color: "#24564C", fontSize: 14, lineHeight: 22 },
+  dailyTopicCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 18,
+    padding: 14,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 2,
+    gap: 12,
+  },
+  dailyTopicHeader: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  dailyTopicIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: COLORS.blueDark,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dailyTopicBody: { flex: 1, gap: 4 },
+  dailyTopicTitle: { color: COLORS.blueDark, fontSize: 15, fontWeight: "800" },
+  dailyTopicTheme: { color: COLORS.gold, fontSize: 13, fontWeight: "700" },
+  dailyTopicMessage: { color: COLORS.gray, fontSize: 14, lineHeight: 22 },
   timerCard: {
     backgroundColor: COLORS.white,
     borderRadius: 18,

@@ -1,30 +1,33 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { COLORS } from "@/src/constants/colors";
+import { calculateProgress, getCompletedDays } from "@/src/stockage/readingProgress";
 import { supabase } from "@/supabaseClient";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { BookOpen, Calendar, ChevronRight } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
-    ActivityIndicator,
-    Alert,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const COLORS = {
-  blue: "#6B85C6",
-  blueDark: "#0F172A",
-  gold: "#D4AF37",
-  white: "#FFFFFF",
-  black: "#0F0F14",
-  grayLight: "#F2F3F7",
-  gray: "#6B6F8A",
+type TypePlan = "annuel" | "mensuel";
+
+type PlanSummary = {
+  type: TypePlan;
+  day: number;
+  completedCount: number;
+  progress: number;
 };
 
-type TypePlan = "annuel" | "mensuel";
 const PLAN_START_KEY = "PLAN_START_DATE_V1";
 const PLAN_TYPE_CACHE_KEY = "PLAN_TYPE_CACHE_V1";
 const PLAN_UNREAD_NOTIFICATION_KEY = "PLAN_UNREAD_NOTIFICATION_V1";
@@ -35,17 +38,38 @@ const LEGACY_MONTHLY_READ_KEY = "MONTHLY_BOOK_READ_V1";
 const ANNUAL_DAY_READ_KEY = "ANNUAL_DAY_READ_V1";
 const READING_DELAY_ALERT_KEY = "READING_DELAY_ALERT_V1";
 
+const PLANS = [
+  {
+    type: "annuel" as const,
+    title: "Plan annuel",
+    subtitle: "Toute la Bible en 365 jours",
+    detail: "Un parcours progressif pour lire régulièrement, jour après jour.",
+    icon: "calendar-outline" as const,
+    total: 365,
+  },
+  {
+    type: "mensuel" as const,
+    title: "Plan mensuel",
+    subtitle: "Un livre à approfondir chaque mois",
+    detail: "Un rythme plus posé pour méditer livre par livre.",
+    icon: "book-outline" as const,
+    total: 30,
+  },
+];
+
 export default function IndexLecture() {
   const router = useRouter();
-  const [chargement, setChargement] = useState(true);
-  const [planEnCours, setPlanEnCours] = useState<TypePlan | null>(null);
-  const [afficherChoix, setAfficherChoix] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [savingPlan, setSavingPlan] = useState<TypePlan | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<PlanSummary | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    verifierPlan();
-  }, []);
+  const selectedPlanInfo = useMemo(
+    () => PLANS.find((plan) => plan.type === currentPlan?.type) ?? null,
+    [currentPlan?.type]
+  );
 
-  async function clearPlanChoiceCache(userId: string) {
+  const clearPlanChoiceCache = useCallback(async (userId: string) => {
     const allKeys = await AsyncStorage.getAllKeys();
     const dynamicKeys = allKeys.filter((key) =>
       key.startsWith(`${ANNUAL_DAY_READ_KEY}:${userId}:`) ||
@@ -66,79 +90,93 @@ export default function IndexLecture() {
     ];
 
     await AsyncStorage.multiRemove([...new Set([...staticKeys, ...dynamicKeys])]);
-  }
+  }, []);
 
-  async function verifierPlan() {
+  const loadPlan = useCallback(async () => {
+    setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         router.replace("/(auth)/login" as any);
         return;
       }
 
+      setAuthUserId(user.id);
+
       const cacheKey = `${PLAN_TYPE_CACHE_KEY}:${user.id}`;
       const { data, error } = await supabase
         .from("plan_lecture_utilisateur")
-        .select("type_plan")
+        .select("type_plan, jour_actuel")
         .eq("utilisateur_id", user.id)
         .order("date_creation", { ascending: false })
         .limit(1);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       const row = data?.[0];
-      if (row) {
-        const resolvedType = row.type_plan as TypePlan;
-        await AsyncStorage.setItem(cacheKey, resolvedType);
-        rediriger(resolvedType);
-      } else {
-        await AsyncStorage.removeItem(cacheKey);
-        setAfficherChoix(true);
+      const remoteType = row?.type_plan === "annuel" || row?.type_plan === "mensuel" ? row.type_plan : null;
+      const cachedType = (await AsyncStorage.getItem(cacheKey)) as TypePlan | null;
+      const resolvedType = remoteType ?? (cachedType === "annuel" || cachedType === "mensuel" ? cachedType : null);
+
+      if (!resolvedType) {
+        setCurrentPlan(null);
+        return;
       }
-    } catch (e) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const cacheKey = `${PLAN_TYPE_CACHE_KEY}:${user.id}`;
-        const cachedType = (await AsyncStorage.getItem(cacheKey)) as TypePlan | null;
-        if (cachedType === "annuel" || cachedType === "mensuel") {
-          rediriger(cachedType);
-          return;
-        }
-      }
-      setAfficherChoix(true);
+
+      await AsyncStorage.setItem(cacheKey, resolvedType);
+      const completedDays = await getCompletedDays(user.id, resolvedType).catch(() => []);
+      const total = resolvedType === "annuel" ? 365 : 30;
+      const dbDay = Number(row?.jour_actuel);
+      const day = Number.isFinite(dbDay) && dbDay > 0 ? dbDay : completedDays.length + 1;
+
+      setCurrentPlan({
+        type: resolvedType,
+        day,
+        completedCount: completedDays.length,
+        progress: calculateProgress(completedDays, total),
+      });
+    } catch {
+      setCurrentPlan(null);
     } finally {
-      setChargement(false);
+      setLoading(false);
     }
+  }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadPlan();
+    }, [loadPlan])
+  );
+
+  function openPlan(type: TypePlan) {
+    router.push(type === "annuel" ? "/meditation/lecture/annuel" : "/meditation/lecture/mensuel");
   }
 
-  async function choisirPlan(type: TypePlan) {
-    setPlanEnCours(type); // Feedback visuel
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      setPlanEnCours(null);
+  async function savePlan(type: TypePlan) {
+    if (!authUserId) {
       router.replace("/(auth)/login" as any);
       return;
     }
 
+    setSavingPlan(type);
+
     try {
-      await clearPlanChoiceCache(user.id);
+      await clearPlanChoiceCache(authUserId);
       const nowIso = new Date().toISOString();
-      const storageKey = `${PLAN_START_KEY}:${user.id}:${type}`;
+      const storageKey = `${PLAN_START_KEY}:${authUserId}:${type}`;
 
       const { data: existingRows, error: existingError } = await supabase
         .from("plan_lecture_utilisateur")
         .select("utilisateur_id")
-        .eq("utilisateur_id", user.id)
+        .eq("utilisateur_id", authUserId)
         .limit(1);
 
-      if (existingError) {
-        throw existingError;
-      }
+      if (existingError) throw existingError;
 
-      const updatePayload = {
+      const payload = {
         type_plan: type,
         jour_actuel: 1,
       };
@@ -146,48 +184,56 @@ export default function IndexLecture() {
       if ((existingRows?.length ?? 0) > 0) {
         const updateResp = await supabase
           .from("plan_lecture_utilisateur")
-          .update(updatePayload)
-          .eq("utilisateur_id", user.id);
+          .update(payload)
+          .eq("utilisateur_id", authUserId);
 
-        if (updateResp.error) {
-          throw updateResp.error;
-        }
+        if (updateResp.error) throw updateResp.error;
       } else {
         const insertResp = await supabase
           .from("plan_lecture_utilisateur")
           .insert({
-            utilisateur_id: user.id,
-            ...updatePayload,
+            utilisateur_id: authUserId,
+            ...payload,
             date_creation: nowIso,
           })
           .select("utilisateur_id")
           .single();
 
-        if (insertResp.error) {
-          throw insertResp.error;
-        }
+        if (insertResp.error) throw insertResp.error;
       }
 
-      await AsyncStorage.setItem(`${PLAN_TYPE_CACHE_KEY}:${user.id}`, type);
+      await AsyncStorage.setItem(`${PLAN_TYPE_CACHE_KEY}:${authUserId}`, type);
       await AsyncStorage.setItem(storageKey, nowIso);
-      rediriger(type);
-    } catch (e: any) {
-      console.error("Erreur sauvegarde plan:", e?.message || e);
+      setCurrentPlan({ type, day: 1, completedCount: 0, progress: 0 });
+      openPlan(type);
+    } catch (error: any) {
       Alert.alert(
         "Sauvegarde impossible",
-        "Le choix du plan n'a pas ete enregistre. Verifie la table plan_lecture_utilisateur et les regles RLS."
+        error?.message ?? "Le choix du plan n’a pas pu être enregistré."
       );
     } finally {
-      setPlanEnCours(null);
+      setSavingPlan(null);
     }
   }
 
-  function rediriger(type: TypePlan) {
-    const route = type === "annuel" ? "/meditation/lecture/annuel" : "/meditation/lecture/mensuel";
-    router.replace(route as any);
+  function confirmPlanChoice(type: TypePlan) {
+    const isChanging = currentPlan && currentPlan.type !== type;
+    if (!isChanging) {
+      savePlan(type);
+      return;
+    }
+
+    Alert.alert(
+      "Changer de programme",
+      "Votre progression du programme actuel sera réinitialisée pour démarrer ce nouveau plan.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { text: "Changer", style: "destructive", onPress: () => savePlan(type) },
+      ]
+    );
   }
 
-  if (chargement) {
+  if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="small" color={COLORS.gold} />
@@ -195,94 +241,260 @@ export default function IndexLecture() {
     );
   }
 
-  if (!afficherChoix) return null;
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
-      
-      <View style={styles.header}>
-        <Text style={styles.surTitre}>VOTRE PROGRAMME</Text>
-        <Text style={styles.titre}>Comment souhaitez-vous explorer la Parole ?</Text>
-        <View style={styles.line} />
-      </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.topBar}>
+          <Pressable style={styles.iconButton} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={22} color={COLORS.blueDark} />
+          </Pressable>
+          <Text style={styles.navTitle}>Programmes</Text>
+          <Pressable style={styles.iconButton} onPress={loadPlan}>
+            <Ionicons name="refresh" size={18} color={COLORS.blueDark} />
+          </Pressable>
+        </View>
 
-      <View style={styles.cardsContainer}>
-        {/* Option Annuel */}
-        <TouchableOpacity
-          activeOpacity={0.6}
-          disabled={planEnCours !== null}
-          style={styles.carte}
-          onPress={() => choisirPlan("annuel")}
-        >
-          <View style={styles.iconCircle}>
-            {planEnCours === "annuel" ? (
-              <ActivityIndicator size="small" color={COLORS.gold} />
-            ) : (
-              <BookOpen size={22} color={COLORS.gold} strokeWidth={1.5} />
-            )}
+        <LinearGradient colors={[COLORS.blueDark, COLORS.blueMid]} style={styles.hero}>
+          <View style={styles.heroIcon}>
+            <Ionicons name="bookmarks-outline" size={24} color={COLORS.blueDark} />
           </View>
-          <View style={styles.textContent}>
-            <Text style={styles.titreCarte}>Plan Annuel</Text>
-            <Text style={styles.description}>La Bible complète en un an, de la Genèse à l’Apocalypse.</Text>
-          </View>
-          <ChevronRight size={18} color={COLORS.blue} opacity={0.4} />
-        </TouchableOpacity>
+          <Text style={styles.heroLabel}>Lecture biblique</Text>
+          <Text style={styles.heroTitle}>Choisissez votre rythme</Text>
+          <Text style={styles.heroText}>
+            Retrouvez votre programme en cours ou démarrez un nouveau parcours adapté à votre saison.
+          </Text>
+        </LinearGradient>
 
-        <View style={styles.divider} />
+        {currentPlan && selectedPlanInfo && (
+          <View style={styles.currentCard}>
+            <View style={styles.currentTop}>
+              <View>
+                <Text style={styles.currentLabel}>Programme actif</Text>
+                <Text style={styles.currentTitle}>{selectedPlanInfo.title}</Text>
+              </View>
+              <View style={styles.progressCircle}>
+                <Text style={styles.progressValue}>{currentPlan.progress}%</Text>
+              </View>
+            </View>
 
-        {/* Option Mensuel */}
-        <TouchableOpacity
-          activeOpacity={0.6}
-          disabled={planEnCours !== null}
-          style={styles.carte}
-          onPress={() => choisirPlan("mensuel")}
-        >
-          <View style={styles.iconCircle}>
-            {planEnCours === "mensuel" ? (
-              <ActivityIndicator size="small" color={COLORS.gold} />
-            ) : (
-              <Calendar size={22} color={COLORS.gold} strokeWidth={1.5} />
-            )}
-          </View>
-          <View style={styles.textContent}>
-            <Text style={styles.titreCarte}>Plan Mensuel</Text>
-            <Text style={styles.description}>Un focus profond sur un livre spécifique chaque mois.</Text>
-          </View>
-          <ChevronRight size={18} color={COLORS.blue} opacity={0.4} />
-        </TouchableOpacity>
-      </View>
+            <View style={styles.currentStats}>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>Jour {currentPlan.day}</Text>
+                <Text style={styles.statLabel}>Prochaine étape</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{currentPlan.completedCount}</Text>
+                <Text style={styles.statLabel}>Validés</Text>
+              </View>
+            </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerNote}>Ce choix personnalisera votre expérience de lecture.</Text>
-      </View>
+            <Pressable style={styles.continueButton} onPress={() => openPlan(currentPlan.type)}>
+              <Text style={styles.continueText}>Continuer</Text>
+              <Ionicons name="arrow-forward" size={17} color={COLORS.blueDark} />
+            </Pressable>
+          </View>
+        )}
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{currentPlan ? "Changer de programme" : "Démarrer un programme"}</Text>
+          <Text style={styles.sectionHint}>2 options</Text>
+        </View>
+
+        <View style={styles.planList}>
+          {PLANS.map((plan) => {
+            const isActive = currentPlan?.type === plan.type;
+            const isSaving = savingPlan === plan.type;
+
+            return (
+              <Pressable
+                key={plan.type}
+                style={[styles.planCard, isActive && styles.planCardActive]}
+                disabled={savingPlan !== null}
+                onPress={() => (isActive ? openPlan(plan.type) : confirmPlanChoice(plan.type))}
+              >
+                <View style={[styles.planIcon, isActive && styles.planIconActive]}>
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color={isActive ? COLORS.white : COLORS.blueDark} />
+                  ) : (
+                    <Ionicons name={plan.icon} size={22} color={isActive ? COLORS.white : COLORS.blueDark} />
+                  )}
+                </View>
+
+                <View style={styles.planBody}>
+                  <View style={styles.planTitleRow}>
+                    <Text style={[styles.planTitle, isActive && styles.textWhite]}>{plan.title}</Text>
+                    {isActive && (
+                      <View style={styles.activePill}>
+                        <Text style={styles.activePillText}>Actif</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.planSubtitle, isActive && styles.textWhiteSoft]}>{plan.subtitle}</Text>
+                  <Text style={[styles.planDetail, isActive && styles.textWhiteSoft]}>{plan.detail}</Text>
+                </View>
+
+                <Ionicons
+                  name={isActive ? "arrow-forward" : "chevron-forward"}
+                  size={18}
+                  color={isActive ? COLORS.gold : COLORS.gray}
+                />
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.noteCard}>
+          <Ionicons name="information-circle-outline" size={20} color={COLORS.gold} />
+          <Text style={styles.noteText}>
+            Le choix d’un nouveau programme remet à zéro les caches de progression liés à l’ancien parcours.
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white, paddingHorizontal: 30 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.white },
-  header: { marginTop: 40, marginBottom: 30 },
-  surTitre: { fontSize: 11, fontWeight: "700", color: COLORS.blue, letterSpacing: 2, marginBottom: 8 },
-  titre: { fontSize: 26, fontWeight: "700", color: COLORS.blueDark, lineHeight: 34 },
-  line: { width: 40, height: 3, backgroundColor: COLORS.gold, marginTop: 20, borderRadius: 2 },
-  cardsContainer: { marginTop: 10 },
-  carte: { flexDirection: "row", alignItems: "center", paddingVertical: 25 },
-  iconCircle: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 24, 
-    borderWidth: 1, 
-    borderColor: COLORS.grayLight, 
-    justifyContent: "center", 
-    alignItems: "center" 
+  safe: { flex: 1, backgroundColor: COLORS.grayLight },
+  center: {
+    flex: 1,
+    backgroundColor: COLORS.grayLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  textContent: { flex: 1, marginLeft: 20, marginRight: 10 },
-  titreCarte: { fontSize: 18, fontWeight: "700", color: COLORS.blueDark, marginBottom: 4 },
-  description: { fontSize: 14, color: COLORS.gray, lineHeight: 20 },
-  divider: { height: 1, backgroundColor: COLORS.grayLight },
-  footer: { marginTop: "auto", paddingBottom: 20 },
-  footerNote: { textAlign: "center", color: COLORS.gray, fontSize: 13, opacity: 0.6 },
+  content: {
+    width: "100%",
+    maxWidth: 520,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 34,
+    gap: 18,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  iconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  navTitle: { color: COLORS.blueDark, fontSize: 18, fontWeight: "900" },
+  hero: {
+    borderRadius: 24,
+    padding: 20,
+    gap: 12,
+  },
+  heroIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroLabel: { color: COLORS.gold, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+  heroTitle: { color: COLORS.white, fontSize: 28, fontWeight: "900", lineHeight: 34 },
+  heroText: { color: COLORS.blueSoft, fontSize: 14, lineHeight: 21 },
+  currentCard: {
+    borderRadius: 22,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 16,
+    gap: 14,
+  },
+  currentTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  currentLabel: { color: COLORS.gray, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+  currentTitle: { marginTop: 3, color: COLORS.blueDark, fontSize: 21, fontWeight: "900" },
+  progressCircle: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 5,
+    borderColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressValue: { color: COLORS.blueDark, fontSize: 13, fontWeight: "900" },
+  currentStats: { flexDirection: "row", gap: 10 },
+  statBox: {
+    flex: 1,
+    borderRadius: 16,
+    backgroundColor: COLORS.grayLight,
+    padding: 12,
+  },
+  statValue: { color: COLORS.blueDark, fontSize: 15, fontWeight: "900" },
+  statLabel: { marginTop: 3, color: COLORS.gray, fontSize: 11, fontWeight: "800" },
+  continueButton: {
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: COLORS.gold,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  continueText: { color: COLORS.blueDark, fontSize: 15, fontWeight: "900" },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sectionTitle: { color: COLORS.blueDark, fontSize: 18, fontWeight: "900" },
+  sectionHint: { color: COLORS.gray, fontSize: 12, fontWeight: "800" },
+  planList: { gap: 12 },
+  planCard: {
+    minHeight: 128,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 13,
+  },
+  planCardActive: {
+    backgroundColor: COLORS.blueDark,
+    borderColor: COLORS.blueDark,
+  },
+  planIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: COLORS.goldSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  planIconActive: { backgroundColor: "rgba(255,255,255,0.14)" },
+  planBody: { flex: 1, gap: 4 },
+  planTitleRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  planTitle: { color: COLORS.blueDark, fontSize: 17, fontWeight: "900" },
+  planSubtitle: { color: COLORS.gray, fontSize: 13, fontWeight: "800" },
+  planDetail: { color: COLORS.gray, fontSize: 12, lineHeight: 18 },
+  activePill: {
+    borderRadius: 999,
+    backgroundColor: COLORS.gold,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  activePillText: { color: COLORS.blueDark, fontSize: 10, fontWeight: "900" },
+  noteCard: {
+    borderRadius: 18,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  noteText: { flex: 1, color: COLORS.gray, fontSize: 12, lineHeight: 18, fontWeight: "700" },
+  textWhite: { color: COLORS.white },
+  textWhiteSoft: { color: COLORS.blueSoft },
 });
-

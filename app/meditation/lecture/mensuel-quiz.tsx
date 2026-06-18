@@ -94,12 +94,24 @@ export default function MensuelQuizPage() {
     () => questions.filter((q) => answers[q.id] !== undefined).length,
     [answers, questions]
   );
+  const progressPercent = Math.min(100, Math.round((answeredCount / Math.max(questions.length, 1)) * 100));
+  const scoreLabel = result?.passed ? "Mois validé" : "À reprendre";
   const currentQuestion = questions[currentIndex];
   const hasAnsweredCurrent = currentQuestion ? answers[currentQuestion.id] !== undefined : false;
   const isLastQuestion = currentIndex >= Math.max(questions.length - 1, 0);
   const allAnswered = questions.length > 0 && answeredCount === questions.length;
   const showValidateAction = allAnswered || isLastQuestion;
   const showQuestionNav = Boolean(currentQuestion) && !result;
+
+  function selectAnswer(option: string) {
+    if (!currentQuestion) return;
+    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: option }));
+    if (!isLastQuestion) {
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev === currentIndex ? Math.min(questions.length - 1, prev + 1) : prev));
+      }, 260);
+    }
+  }
 
   useEffect(() => {
     const init = async () => {
@@ -205,7 +217,11 @@ export default function MensuelQuizPage() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <Text style={styles.loadingText}>Chargement du quiz...</Text>
+        <View style={styles.loadingIcon}>
+          <Feather name="book-open" size={22} color={COLORS.gold} />
+        </View>
+        <Text style={styles.loadingTitle}>Préparation du quiz</Text>
+        <Text style={styles.loadingText}>Nous construisons vos questions à partir du livre terminé.</Text>
       </View>
     );
   }
@@ -223,109 +239,193 @@ export default function MensuelQuizPage() {
         </View>
       </SafeAreaView>
 
-      <ScrollView contentContainerStyle={[styles.content, showQuestionNav && styles.contentWithFixedNav]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, showQuestionNav && styles.contentWithFixedNav]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={[styles.contentInner, { maxWidth: contentMaxWidth }]}>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>{title || "Livre"}</Text>
-          <Text style={styles.heroSub}>
-            {MIN_QUESTIONS} questions minimum pour valider le mois {safeMonth}.
-          </Text>
-          <View style={styles.progressRow}>
-            <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${Math.min(100, Math.round((answeredCount / Math.max(questions.length, 1)) * 100))}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.progressText}>{answeredCount}/{questions.length}</Text>
-          </View>
-        </View>
+          <View style={styles.heroCard}>
+            <Text style={styles.heroEyebrow}>Quiz du mois {safeMonth}</Text>
+            <Text style={styles.heroTitle}>{title || "Livre"}</Text>
+            <Text style={styles.heroSub}>Validez votre lecture avec un quiz simple et progressif.</Text>
 
-        {currentQuestion && (
-          <View style={styles.quizItem}>
-            <Text style={styles.stepText}>
-              Question {currentIndex + 1} / {questions.length}
-            </Text>
-            <Text style={[styles.quizQuestion, isSmallScreen && styles.quizQuestionSmall]}>
-              {currentQuestion.prompt}
-            </Text>
-            <Text style={styles.quizRef}>{currentQuestion.verseReference}</Text>
-            <Text style={[styles.quizVerse, isSmallScreen && styles.quizVerseSmall]}>
-              {currentQuestion.verseWithBlank}
-            </Text>
-            <View style={styles.optionsRow}>
-              {currentQuestion.options.map((opt) => {
-                const active = answers[currentQuestion.id] === opt;
+            <View style={styles.progressRow}>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+              </View>
+              <Text style={styles.progressText}>{answeredCount}/{questions.length}</Text>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.questionDots}
+            >
+              {questions.map((question, index) => {
+                const active = index === currentIndex;
+                const answered = answers[question.id] !== undefined;
                 return (
                   <TouchableOpacity
-                    key={`${currentQuestion.id}-${opt}`}
+                    key={question.id}
+                    activeOpacity={0.75}
                     style={[
-                      styles.optionBtn,
-                      !isSmallScreen && styles.optionBtnLarge,
-                      active && styles.optionBtnActive,
+                      styles.questionDot,
+                      answered && styles.questionDotAnswered,
+                      active && styles.questionDotActive,
                     ]}
-                    onPress={() => setAnswers((prev) => ({ ...prev, [currentQuestion.id]: opt }))}
+                    onPress={() => setCurrentIndex(index)}
                   >
-                    <Text style={[styles.optionText, isSmallScreen && styles.optionTextSmall, active && styles.optionTextActive]}>
-                      {opt}
+                    <Text
+                      style={[
+                        styles.questionDotText,
+                        answered && styles.questionDotTextAnswered,
+                        active && styles.questionDotTextActive,
+                      ]}
+                    >
+                      {index + 1}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
-            </View>
-
+            </ScrollView>
           </View>
-        )}
 
-        {result && (
-          <View style={styles.resultCard}>
-            <Text style={styles.resultText}>
-              Resultat: {result.score}% {result.passed ? "(Valide)" : "(Non valide)"} - seuil {PASS_SCORE}%
-            </Text>
-            {!result.passed && (
-              <Text style={styles.resultHint}>
-                Vous n'avez pas atteint {PASS_SCORE}%. Corrigez et relancez un nouveau quiz.
-              </Text>
-            )}
-            {validationSaved && (
-              <Text style={styles.resultSuccess}>
-                Validation enregistree. Le livre est valide.
-              </Text>
-            )}
-            {validationError && (
-              <Text style={styles.resultError}>{validationError}</Text>
-            )}
-
-            <TouchableOpacity
-              style={styles.toggleCorrectionsBtn}
-              onPress={() => setShowCorrections((prev) => !prev)}
-            >
-              <Text style={styles.toggleCorrectionsText}>
-                {showCorrections ? "Masquer les corrections" : "Voir les corrections"}
-              </Text>
-            </TouchableOpacity>
-
-            {showCorrections && (
-              <View style={styles.correctionsList}>
-                {result.corrections.map((c) => (
-                  <View key={c.id} style={[styles.correctionItem, c.isCorrect ? styles.correctionOk : styles.correctionKo]}>
-                    <Text style={styles.correctionPrompt}>{c.prompt}</Text>
-                    <Text style={styles.correctionRef}>{c.verseReference}</Text>
-                    <Text style={styles.correctionLine}>Votre reponse: {c.userAnswer}</Text>
-                    <Text style={styles.correctionLine}>Bonne reponse: {c.correctAnswer}</Text>
-                  </View>
-                ))}
+          {currentQuestion && (
+            <View style={styles.quizItem}>
+              <View style={styles.questionTop}>
+                <View>
+                  <Text style={styles.stepText}>Question {currentIndex + 1}</Text>
+                  <Text style={styles.stepSubText}>sur {questions.length}</Text>
+                </View>
+                {hasAnsweredCurrent && (
+                  <Text style={styles.answeredText}>Répondu</Text>
+                )}
               </View>
-            )}
-          </View>
-        )}
 
-        {result && (
+              <Text style={[styles.quizQuestion, isSmallScreen && styles.quizQuestionSmall]}>
+                {currentQuestion.prompt}
+              </Text>
+
+              <View style={styles.verseBox}>
+                <Text style={styles.quizRef}>{currentQuestion.verseReference}</Text>
+                <Text style={[styles.quizVerse, isSmallScreen && styles.quizVerseSmall]}>
+                  {currentQuestion.verseWithBlank}
+                </Text>
+              </View>
+
+              <View style={styles.optionsRow}>
+                {currentQuestion.options.map((opt, index) => {
+                  const active = answers[currentQuestion.id] === opt;
+                  return (
+                    <TouchableOpacity
+                      key={`${currentQuestion.id}-${opt}`}
+                      activeOpacity={0.82}
+                      style={[styles.optionBtn, active && styles.optionBtnActive]}
+                      onPress={() => selectAnswer(opt)}
+                    >
+                      <Text style={[styles.optionIndexText, active && styles.optionIndexTextActive]}>
+                        {String.fromCharCode(65 + index)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.optionText,
+                          isSmallScreen && styles.optionTextSmall,
+                          active && styles.optionTextActive,
+                        ]}
+                      >
+                        {opt}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+            </View>
+          )}
+
+          {result && (
+            <View style={[styles.resultCard, result.passed ? styles.resultCardPassed : styles.resultCardFailed]}>
+              <View style={styles.resultTop}>
+                <View style={styles.resultBody}>
+                  <Text style={styles.resultKicker}>{scoreLabel}</Text>
+                  <Text style={styles.resultText}>{result.score}%</Text>
+                </View>
+              </View>
+
+              <Text style={styles.resultHint}>
+                {result.passed
+                  ? "Votre score atteint le seuil demandé. Le mois peut être validé."
+                  : `Vous devez atteindre ${PASS_SCORE}% pour valider ce mois.`}
+              </Text>
+
+              {!result.passed && (
+                <TouchableOpacity style={styles.retryPrimaryBtn} onPress={relaunchQuiz}>
+                  <View style={styles.ctaIcon}>
+                    <Feather name="refresh-cw" size={16} color={COLORS.blueDark} />
+                  </View>
+                  <Text style={styles.retryPrimaryText}>Nouveau quiz</Text>
+                </TouchableOpacity>
+              )}
+
+              {validationSaved && (
+                <View style={styles.resultNoticeSuccess}>
+                  <Feather name="check-circle" size={16} color="#166534" />
+                  <Text style={styles.resultSuccess}>Validation enregistrée. Le livre est validé.</Text>
+                </View>
+              )}
+              {validationError && (
+                <View style={styles.resultNoticeError}>
+                  <Feather name="alert-circle" size={16} color="#B91C1C" />
+                  <Text style={styles.resultError}>{validationError}</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.toggleCorrectionsBtn}
+                onPress={() => setShowCorrections((prev) => !prev)}
+              >
+                <Feather name={showCorrections ? "eye-off" : "list"} size={16} color={COLORS.blueDark} />
+                <Text style={styles.toggleCorrectionsText}>
+                  {showCorrections ? "Masquer les corrections" : "Voir les corrections"}
+                </Text>
+              </TouchableOpacity>
+
+              {showCorrections && (
+                <View style={styles.correctionsList}>
+                  {result.corrections.map((c, index) => (
+                    <View key={c.id} style={[styles.correctionItem, c.isCorrect ? styles.correctionOk : styles.correctionKo]}>
+                      <View style={styles.correctionTop}>
+                        <Text style={styles.correctionNumber}>{index + 1}</Text>
+                        <Feather
+                          name={c.isCorrect ? "check-circle" : "x-circle"}
+                          size={16}
+                          color={c.isCorrect ? "#166534" : "#B91C1C"}
+                        />
+                      </View>
+                      <Text style={styles.correctionPrompt}>{c.prompt}</Text>
+                      <Text style={styles.correctionRef}>{c.verseReference}</Text>
+                      <Text style={styles.correctionLine}>Votre réponse: {c.userAnswer}</Text>
+                      <Text style={styles.correctionLine}>Bonne réponse: {c.correctAnswer}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+        {result?.passed && (
           <View style={[styles.actions, isSmallScreen && styles.actionsStack]}>
-            <TouchableOpacity style={[styles.secondaryBtn, isSmallScreen && styles.fullWidthBtn]} onPress={relaunchQuiz}>
-              <Text style={styles.secondaryBtnText}>Nouveau quiz</Text>
+            <TouchableOpacity
+              style={[
+                styles.secondaryBtn,
+                styles.newQuizBtn,
+                isSmallScreen && styles.fullWidthBtn,
+              ]}
+              onPress={relaunchQuiz}
+            >
+              <Text style={[styles.secondaryBtnText, styles.newQuizBtnText]}>
+                Nouveau quiz
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -348,7 +448,8 @@ export default function MensuelQuizPage() {
               disabled={currentIndex === 0}
               onPress={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
             >
-              <Text style={styles.navBtnGhostText}>Precedent</Text>
+              <Feather name="chevron-left" size={16} color={COLORS.blueDark} />
+              <Text style={styles.navBtnGhostText}>Précédent</Text>
             </TouchableOpacity>
             {showValidateAction ? (
               <TouchableOpacity
@@ -359,6 +460,9 @@ export default function MensuelQuizPage() {
                 disabled={submitting || (!allAnswered && !hasAnsweredCurrent)}
                 onPress={submitQuiz}
               >
+                <View style={styles.ctaIcon}>
+                  <Feather name="check" size={16} color={COLORS.blueDark} />
+                </View>
                 <Text style={styles.navBtnPrimaryText}>
                   {submitting ? "Validation..." : "Valider le quiz"}
                 </Text>
@@ -369,6 +473,9 @@ export default function MensuelQuizPage() {
                 onPress={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
               >
                 <Text style={styles.navBtnPrimaryText}>Suivant</Text>
+                <View style={styles.ctaIcon}>
+                  <Feather name="chevron-right" size={16} color={COLORS.blueDark} />
+                </View>
               </TouchableOpacity>
             )}
           </View>
@@ -380,9 +487,27 @@ export default function MensuelQuizPage() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.white },
-  loadingText: { color: COLORS.gray, fontSize: 14, fontWeight: "600" },
-  headerSafe: { backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.bg,
+    paddingHorizontal: 28,
+  },
+  loadingIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  loadingTitle: { color: COLORS.blueDark, fontSize: 20, fontWeight: "900", marginBottom: 6 },
+  loadingText: { color: COLORS.gray, fontSize: 14, fontWeight: "600", textAlign: "center", lineHeight: 21 },
+  headerSafe: { backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: "#E2E8F0" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -394,31 +519,36 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    backgroundColor: COLORS.grayLight,
     justifyContent: "center",
     alignItems: "center",
   },
-  navTitle: { color: COLORS.blueDark, fontSize: 18, fontWeight: "800" },
-  content: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 30 },
+  navTitle: { color: COLORS.blueDark, fontSize: 18, fontWeight: "900" },
+  content: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 32 },
   contentWithFixedNav: { paddingBottom: 120 },
   contentInner: { width: "100%", alignSelf: "center" },
   heroCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: COLORS.grayLight,
-    padding: 18,
-    marginBottom: 14,
+    paddingTop: 4,
+    paddingBottom: 18,
   },
-  heroTitle: { fontSize: 24, fontWeight: "800", color: COLORS.blueDark },
-  heroSub: { marginTop: 6, color: COLORS.gray, fontSize: 15, lineHeight: 22 },
-  progressRow: { marginTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
+  heroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  heroIcon: { display: "none" },
+  monthPill: { display: "none" },
+  monthPillText: { color: COLORS.blueDark, fontSize: 12, fontWeight: "800" },
+  heroEyebrow: { color: COLORS.gold, fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
+  heroTitle: { marginTop: 6, fontSize: 28, lineHeight: 34, fontWeight: "900", color: COLORS.blueDark },
+  heroSub: { marginTop: 6, color: COLORS.gray, fontSize: 14, lineHeight: 21 },
+  statsRow: { display: "none" },
+  statBox: { display: "none" },
+  statValue: { color: COLORS.blueDark, fontSize: 16, fontWeight: "900" },
+  statLabel: { color: COLORS.gray, fontSize: 11, fontWeight: "700" },
+  progressRow: { marginTop: 14, flexDirection: "row", alignItems: "center", gap: 10 },
   progressTrack: {
     flex: 1,
     height: 8,
     borderRadius: 999,
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: "#E2E8F0",
     overflow: "hidden",
   },
   progressFill: {
@@ -426,50 +556,115 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: COLORS.gold,
   },
-  progressText: { color: COLORS.blueDark, fontWeight: "700", fontSize: 13, minWidth: 44, textAlign: "right" },
+  progressText: { color: COLORS.gray, fontWeight: "800", fontSize: 13, minWidth: 52, textAlign: "right" },
+  questionDots: {
+    gap: 8,
+    paddingTop: 14,
+    paddingRight: 8,
+  },
+  questionDot: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  questionDotAnswered: {
+    backgroundColor: "#F8FAFC",
+    borderColor: COLORS.gold,
+  },
+  questionDotActive: {
+    backgroundColor: COLORS.blueDark,
+    borderColor: COLORS.blueDark,
+  },
+  questionDotText: {
+    color: COLORS.gray,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  questionDotTextAnswered: {
+    color: COLORS.blueDark,
+  },
+  questionDotTextActive: {
+    color: COLORS.white,
+  },
   quizItem: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
-    padding: 16,
-    marginBottom: 10,
+    borderColor: "#E2E8F0",
+    padding: 18,
+    marginBottom: 12,
   },
-  quizQuestion: { fontSize: 16, color: COLORS.blueDark, fontWeight: "800", marginBottom: 6, lineHeight: 23 },
-  quizQuestionSmall: { fontSize: 15, lineHeight: 22 },
-  stepText: { fontSize: 12, fontWeight: "700", color: COLORS.gray, marginBottom: 6 },
-  quizRef: { fontSize: 12, color: COLORS.gray, marginBottom: 6, fontWeight: "700", textTransform: "uppercase" },
+  questionTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+  stepText: { fontSize: 12, fontWeight: "900", color: COLORS.gold, textTransform: "uppercase" },
+  stepSubText: { fontSize: 12, color: COLORS.gray, fontWeight: "700", marginTop: 2 },
+  answeredText: { color: COLORS.gray, fontSize: 12, fontWeight: "800" },
+  answerBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: COLORS.grayLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  answerBadgeDone: { backgroundColor: COLORS.blueDark },
+  quizQuestion: { fontSize: 18, color: COLORS.blueDark, fontWeight: "800", marginBottom: 12, lineHeight: 26 },
+  quizQuestionSmall: { fontSize: 16, lineHeight: 23 },
+  verseBox: {
+    backgroundColor: "#FAFAFA",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  quizRef: { fontSize: 11, color: COLORS.gray, marginBottom: 7, fontWeight: "900", textTransform: "uppercase" },
   quizVerse: {
     fontSize: 15,
     color: COLORS.blueDark,
-    marginBottom: 10,
     fontStyle: "italic",
     lineHeight: 22,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: COLORS.grayLight,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
   },
   quizVerseSmall: { fontSize: 14, lineHeight: 21 },
-  optionsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  optionsRow: { gap: 10 },
   optionBtn: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#F8FAFC",
-    minHeight: 44,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: COLORS.white,
+    minHeight: 52,
   },
   optionBtnLarge: {
     minWidth: "47%",
   },
-  optionBtnActive: { backgroundColor: COLORS.blueDark, borderColor: COLORS.blueDark },
-  optionText: { color: COLORS.blueDark, fontWeight: "700", fontSize: 14, lineHeight: 20 },
+  optionBtnActive: { backgroundColor: "#F8FAFC", borderColor: COLORS.gold },
+  optionIndex: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  optionIndexActive: { backgroundColor: COLORS.gold, borderColor: COLORS.gold },
+  optionIndexText: { color: COLORS.gray, fontSize: 13, fontWeight: "900", width: 18, textAlign: "center" },
+  optionIndexTextActive: { color: COLORS.gold },
+  optionText: { flex: 1, color: COLORS.blueDark, fontWeight: "700", fontSize: 15, lineHeight: 21 },
   optionTextSmall: { fontSize: 13, lineHeight: 18 },
-  optionTextActive: { color: COLORS.white },
+  optionTextActive: { color: COLORS.blueDark },
   bottomSafe: {
     backgroundColor: COLORS.white,
     borderTopWidth: 1,
@@ -478,15 +673,17 @@ const styles = StyleSheet.create({
   fixedNavWrap: {
     flexDirection: "row",
     gap: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 12,
     backgroundColor: COLORS.white,
   },
   navBtn: {
     flex: 1,
+    flexDirection: "row",
+    gap: 6,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
+    borderColor: "#CBD5E1",
     borderRadius: 14,
     height: 48,
     justifyContent: "center",
@@ -498,73 +695,166 @@ const styles = StyleSheet.create({
     borderColor: "#CBD5E1",
   },
   navBtnDisabled: { opacity: 0.45 },
-  navBtnGhostText: { color: COLORS.blueDark, fontWeight: "700", fontSize: 14 },
+  navBtnGhostText: { color: COLORS.blueDark, fontWeight: "800", fontSize: 14 },
   navBtnPrimary: {
     flex: 1,
+    flexDirection: "row",
+    gap: 8,
     borderRadius: 14,
-    height: 48,
+    minHeight: 52,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: COLORS.gold,
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 5,
   },
   navBtnPrimaryDisabled: { opacity: 0.65 },
-  navBtnPrimaryText: { color: COLORS.blueDark, fontWeight: "800", fontSize: 13 },
+  navBtnPrimaryText: { color: COLORS.blueDark, fontWeight: "900", fontSize: 14 },
+  ctaIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.58)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   resultCard: {
-    marginTop: 8,
+    marginTop: 2,
     marginBottom: 12,
     backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
-    borderRadius: 12,
-    padding: 12,
+    borderColor: "#E2E8F0",
+    borderRadius: 18,
+    padding: 16,
   },
-  resultText: { color: COLORS.blueDark, fontWeight: "800", fontSize: 15 },
-  resultHint: { marginTop: 6, color: COLORS.gray, fontSize: 13 },
-  resultSuccess: { marginTop: 6, color: "#166534", fontSize: 13, fontWeight: "700" },
-  resultError: { marginTop: 6, color: "#B91C1C", fontSize: 13, fontWeight: "700" },
+  resultCardPassed: { borderColor: "#D9E8D8" },
+  resultCardFailed: { borderColor: "#F4D6D6" },
+  resultTop: { flexDirection: "row", alignItems: "center", gap: 12 },
+  resultIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  resultIconPassed: { backgroundColor: "#166534" },
+  resultIconFailed: { backgroundColor: "#B91C1C" },
+  resultBody: { flex: 1 },
+  resultKicker: { color: COLORS.gray, fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
+  resultText: { color: COLORS.blueDark, fontWeight: "900", fontSize: 28, lineHeight: 34 },
+  resultHint: { marginTop: 12, color: COLORS.gray, fontSize: 14, lineHeight: 21, fontWeight: "600" },
+  retryPrimaryBtn: {
+    marginTop: 14,
+    minHeight: 56,
+    borderRadius: 16,
+    backgroundColor: COLORS.gold,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  retryPrimaryText: {
+    color: COLORS.blueDark,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  resultNoticeSuccess: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: "#F0FDF4",
+    padding: 10,
+  },
+  resultNoticeError: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: "#FEF2F2",
+    padding: 10,
+  },
+  resultSuccess: { flex: 1, color: "#166534", fontSize: 13, fontWeight: "800" },
+  resultError: { flex: 1, color: "#B91C1C", fontSize: 13, fontWeight: "800" },
   toggleCorrectionsBtn: {
-    marginTop: 10,
+    marginTop: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
+    paddingVertical: 12,
     alignItems: "center",
     backgroundColor: "#F8FAFC",
   },
-  toggleCorrectionsText: { color: COLORS.blueDark, fontWeight: "700", fontSize: 13 },
-  correctionsList: { marginTop: 10, gap: 8 },
+  toggleCorrectionsText: { color: COLORS.blueDark, fontWeight: "900", fontSize: 13 },
+  correctionsList: { marginTop: 12, gap: 10 },
   correctionItem: {
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 15,
+    padding: 12,
     backgroundColor: "#F8FAFC",
   },
-  correctionOk: { borderColor: "#BBF7D0" },
-  correctionKo: { borderColor: "#FECACA" },
-  correctionPrompt: { color: COLORS.blueDark, fontSize: 13, fontWeight: "700" },
-  correctionRef: { marginTop: 2, color: COLORS.gray, fontSize: 12 },
-  correctionLine: { marginTop: 3, color: COLORS.blueDark, fontSize: 12 },
+  correctionOk: { borderColor: "#BBF7D0", backgroundColor: "#F0FDF4" },
+  correctionKo: { borderColor: "#FECACA", backgroundColor: "#FEF2F2" },
+  correctionTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  correctionNumber: { color: COLORS.gray, fontSize: 12, fontWeight: "900" },
+  correctionPrompt: { color: COLORS.blueDark, fontSize: 13, fontWeight: "900", lineHeight: 19 },
+  correctionRef: { marginTop: 4, color: COLORS.gray, fontSize: 12, fontWeight: "700" },
+  correctionLine: { marginTop: 4, color: COLORS.blueDark, fontSize: 12, fontWeight: "600" },
   actions: { flexDirection: "row", gap: 10 },
   actionsStack: { flexDirection: "column" },
   fullWidthBtn: { width: "100%" },
   secondaryBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
+    borderColor: "#E2E8F0",
     borderRadius: 12,
     height: 48,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: COLORS.white,
   },
-  secondaryBtnText: { color: COLORS.gray, fontWeight: "700", fontSize: 14 },
+  secondaryBtnText: { color: COLORS.gray, fontWeight: "800", fontSize: 14 },
+  newQuizBtn: {
+    backgroundColor: COLORS.gold,
+    borderColor: COLORS.gold,
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  newQuizBtnText: {
+    color: COLORS.blueDark,
+    fontWeight: "900",
+  },
+  retryBtn: {
+    backgroundColor: COLORS.gold,
+    borderColor: COLORS.gold,
+  },
+  retryBtnText: {
+    color: COLORS.blueDark,
+    fontWeight: "900",
+  },
   backPlanBtn: {
     marginTop: 10,
-    borderRadius: 12,
+    borderRadius: 14,
     height: 48,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: COLORS.blueDark,
   },
-  backPlanBtnText: { color: COLORS.white, fontWeight: "700", fontSize: 14 },
+  backPlanBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 14 },
 });
