@@ -1,4 +1,5 @@
--- À exécuter dans le SQL Editor Supabase après la migration.
+-- Audit RLS Kabod
+-- À exécuter dans le SQL Editor Supabase après les migrations.
 
 select
   n.nspname as schema_name,
@@ -8,6 +9,7 @@ select
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname in ('public', 'storage')
+  and c.relkind in ('r', 'p')
   and c.relname in (
     'users_profile',
     'progression_lecture',
@@ -18,6 +20,14 @@ where n.nspname in ('public', 'storage')
     'prayer_podcasts',
     'church_events',
     'live_streams',
+    'testimonies',
+    'community_feed_posts',
+    'library_books',
+    'library_book_progress',
+    'support_requests',
+    'device_push_tokens',
+    'app_notifications',
+    'donation_intents',
     'objects'
   )
 order by n.nspname, c.relname;
@@ -42,6 +52,26 @@ where schemaname in ('public', 'storage')
     'prayer_podcasts',
     'church_events',
     'live_streams',
+    'testimonies',
+    'community_feed_posts',
+    'library_books',
+    'library_book_progress',
+    'support_requests',
+    'device_push_tokens',
+    'app_notifications',
+    'donation_intents',
     'objects'
   )
 order by schemaname, tablename, policyname;
+
+-- Tables publiques sans RLS activé : doit idéalement retourner 0 ligne
+-- pour les tables applicatives sensibles.
+select
+  n.nspname as schema_name,
+  c.relname as table_name
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+  and c.relkind in ('r', 'p')
+  and c.relrowsecurity is false
+order by c.relname;

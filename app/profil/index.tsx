@@ -13,9 +13,11 @@ const ACTIVITY_ITEMS = [
 ];
 
 const SETTINGS_ITEMS = [
-  { icon: "person-circle-outline" as const, label: "Informations personnelles" },
-  { icon: "cloud-done-outline" as const, label: "Synchronisation" },
-  { icon: "help-circle-outline" as const, label: "Aide et assistance" },
+  { icon: "notifications-circle-outline" as const, label: "Notifications reçues", route: "/notifications" },
+  { icon: "notifications-outline" as const, label: "Notifications spirituelles", route: "/profil/notifications" },
+  { icon: "person-circle-outline" as const, label: "Mes données personnelles", route: "/profil/donnees" },
+  { icon: "shield-checkmark-outline" as const, label: "Politique de confidentialité", route: "/legal/privacy" },
+  { icon: "document-text-outline" as const, label: "Conditions d’utilisation", route: "/legal/terms" },
 ];
 
 export default function ProfilePage() {
@@ -41,10 +43,6 @@ export default function ProfilePage() {
         },
       },
     ]);
-  };
-
-  const showComingSoon = () => {
-    Alert.alert("Bientôt disponible", "Cette option sera activée dans une prochaine version.");
   };
 
   return (
@@ -87,7 +85,12 @@ export default function ProfilePage() {
 
         <Section title="Réglages">
           {SETTINGS_ITEMS.map((item) => (
-            <Item key={item.label} icon={item.icon} label={item.label} onPress={showComingSoon} />
+            <Item
+              key={item.label}
+              icon={item.icon}
+              label={item.label}
+              onPress={() => router.push(item.route as any)}
+            />
           ))}
         </Section>
 

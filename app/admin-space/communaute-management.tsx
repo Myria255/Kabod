@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
-  Dimensions,
   Pressable,
   ScrollView,
   StatusBar,
@@ -16,8 +15,6 @@ import {
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const { width } = Dimensions.get('window');
 
 type CommunityRecord = {
   id: string;

@@ -53,7 +53,7 @@ const PLANS = [
     subtitle: "Un livre à approfondir chaque mois",
     detail: "Un rythme plus posé pour méditer livre par livre.",
     icon: "book-outline" as const,
-    total: 30,
+    total: 12,
   },
 ];
 
@@ -128,7 +128,7 @@ export default function IndexLecture() {
 
       await AsyncStorage.setItem(cacheKey, resolvedType);
       const completedDays = await getCompletedDays(user.id, resolvedType).catch(() => []);
-      const total = resolvedType === "annuel" ? 365 : 30;
+      const total = resolvedType === "annuel" ? 365 : 12;
       const dbDay = Number(row?.jour_actuel);
       const day = Number.isFinite(dbDay) && dbDay > 0 ? dbDay : completedDays.length + 1;
 
@@ -179,6 +179,7 @@ export default function IndexLecture() {
       const payload = {
         type_plan: type,
         jour_actuel: 1,
+        date_creation: nowIso,
       };
 
       if ((existingRows?.length ?? 0) > 0) {
@@ -194,7 +195,6 @@ export default function IndexLecture() {
           .insert({
             utilisateur_id: authUserId,
             ...payload,
-            date_creation: nowIso,
           })
           .select("utilisateur_id")
           .single();

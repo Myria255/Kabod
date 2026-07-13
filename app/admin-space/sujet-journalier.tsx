@@ -7,6 +7,7 @@ import {
   saveDailyPrayerTopic,
 } from "@/src/services/dailyPrayerTopicSupabase";
 import { supabase } from "@/supabaseClient";
+import { notifyUsersFromAdmin } from "@/src/services/pushNotifications";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
@@ -94,6 +95,15 @@ export default function DailyPrayerTopicAdminPage() {
         theme: cleanTheme, message: cleanMessage,
         topicDate: cleanDate, status: nextStatus,
       });
+
+      if (nextStatus === "published") {
+        notifyUsersFromAdmin({
+          title: "Sujet de prière du jour",
+          body: cleanTitle,
+          targetScope: "all",
+          data: { type: "daily_prayer_topic", route: "/priere/priere" },
+        }).catch((error) => console.warn("Notification sujet failed", error));
+      }
 
       resetForm(); await loadPage();
       Alert.alert(nextStatus === "published" ? "Sujet publié" : "Brouillon enregistré");

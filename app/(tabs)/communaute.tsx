@@ -25,6 +25,14 @@ type CommunityProfile = {
   age: number | null;
 };
 
+type ActionIcon =
+  | "person-circle-outline"
+  | "chatbubble-outline"
+  | "sparkles-outline"
+  | "calendar-outline"
+  | "headset-outline"
+  | "gift-outline";
+
 export default function CommunauteTabPage() {
   const router = useRouter();
   const { user } = useUser();
@@ -90,6 +98,7 @@ export default function CommunauteTabPage() {
       if (!authUser) {
         setAuthUserId(null);
         setProfile({ belongs: false, communityType: null, situation: null, age: null });
+        setSelectedType(null);
         setLoading(false);
         return;
       }
@@ -168,7 +177,7 @@ export default function CommunauteTabPage() {
 
     if (updateResult.error) {
       setSavingChoice(false);
-      Alert.alert("Mise à jour impossible", "Votre choix n'a pas pu être enregistré.");
+      Alert.alert("Mise à jour impossible", "Votre choix n’a pas pu être enregistré.");
       return;
     }
 
@@ -267,7 +276,7 @@ export default function CommunauteTabPage() {
         <View style={styles.section}>
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>Espaces partagés</Text>
-            <Pressable onPress={() => requireAuth(() => Alert.alert("Bientôt disponible", "Le fil arrive bientôt."))}>
+            <Pressable onPress={() => router.push("/(tabs)/podcast" as any)}>
               <Text style={styles.seeAll}>Voir tout</Text>
             </Pressable>
           </View>
@@ -277,13 +286,28 @@ export default function CommunauteTabPage() {
             <Action
               icon="chatbubble-outline"
               text="Fil communauté"
-              onPress={() => requireAuth(() => Alert.alert("Bientôt disponible", "Le fil arrive bientôt."))}
+              onPress={() => requireAuth(() => router.push("/communaute/fil" as any))}
+            />
+            <Action
+              icon="sparkles-outline"
+              text="Témoignages"
+              onPress={() => requireAuth(() => router.push("/communaute/temoignages" as any))}
             />
             <Action
               icon="calendar-outline"
               text="Événements"
+              onPress={() => requireAuth(() => router.push("/communaute/evenements" as any))}
+            />
+            <Action
+              icon="headset-outline"
+              text="Podcasts & lives"
+              onPress={() => router.push("/(tabs)/podcast" as any)}
+            />
+            <Action
+              icon="gift-outline"
+              text="Don / offrande"
               isLast
-              onPress={() => requireAuth(() => Alert.alert("Bientôt disponible", "Les événements arrivent bientôt."))}
+              onPress={() => requireAuth(() => router.push("/communaute/don" as any))}
             />
           </View>
         </View>
@@ -298,16 +322,29 @@ function Action({
   onPress,
   isLast = false,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: ActionIcon;
   text: string;
   onPress: () => void;
   isLast?: boolean;
 }) {
+  const materialIcon =
+    icon === "person-circle-outline"
+      ? "account-circle-outline"
+      : icon === "chatbubble-outline"
+      ? "message-outline"
+      : icon === "sparkles-outline"
+      ? "message-star-outline"
+      : icon === "headset-outline"
+      ? "headphones"
+      : icon === "gift-outline"
+      ? "gift-outline"
+      : "calendar-outline";
+
   return (
     <Pressable style={[styles.action, isLast && styles.actionLast]} onPress={onPress}>
       <View style={styles.actionIcon}>
         <MaterialCommunityIcons
-          name={icon === "person-circle-outline" ? "account-circle-outline" : icon === "chatbubble-outline" ? "message-outline" : "calendar-outline"}
+          name={materialIcon}
           size={22}
           color={COLORS.blueDark}
         />

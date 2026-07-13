@@ -11,8 +11,9 @@ export function AppRouteGuard({ children }: { children: React.ReactNode }) {
   const isAuthRoute = rootSegment === "(auth)";
   const isAdminRoute = rootSegment === "admin-space" || rootSegment === "admin";
   const isEntryRoute = rootSegment === undefined || rootSegment === "index";
+  const isPublicLegalRoute = rootSegment === "legal";
 
-  if (!isAuthenticated && !isAuthRoute && !isEntryRoute) {
+  if (!isAuthenticated && !isAuthRoute && !isEntryRoute && !isPublicLegalRoute) {
     return <Redirect href="/(auth)/login" />;
   }
 

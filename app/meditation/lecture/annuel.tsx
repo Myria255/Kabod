@@ -81,18 +81,15 @@ function genererPlanCanonique(): ChapitrePlan[] {
   });
 
   const total = chapitres.length;
-  const parJour = Math.ceil(total / NOMBRE_JOURS);
-
   const plan: ChapitrePlan[] = [];
-  let jour = 1;
-  let index = 0;
 
-  while (index < total && jour <= NOMBRE_JOURS) {
-    for (let i = 0; i < parJour && index < total; i++) {
+  for (let jour = 1; jour <= NOMBRE_JOURS; jour++) {
+    const startIndex = Math.floor(((jour - 1) * total) / NOMBRE_JOURS);
+    const endIndex = Math.floor((jour * total) / NOMBRE_JOURS);
+
+    for (let index = startIndex; index < endIndex; index++) {
       plan.push({ jour, ...chapitres[index] });
-      index++;
     }
-    jour++;
   }
 
   return plan;

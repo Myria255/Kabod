@@ -1,10 +1,15 @@
 import { COLORS } from "@/src/constants/colors";
 import { useUser } from "@/src/context/UserContext";
+import {
+  getAdminDashboardCounts,
+  markAdminRouteSeen,
+  type AdminDashboardCounts,
+} from "@/src/services/adminDashboardSupabase";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from "expo-router";
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from 'react';
 import { Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -31,18 +36,69 @@ const ADMIN_MODULES = [
     route: "/admin-space/evenements",
   },
   {
+    id: "livres",
+    icon: "book-open-page-variant-outline" as const,
+    title: "Livres & documents",
+    text: "Ajouter des PDF, EPUB et ressources à lire ou télécharger.",
+    route: "/admin-space/livres",
+  },
+  {
     id: "communaute",
     icon: "account-group" as const,
     title: "Communauté",
     text: "Gérer les groupes, créer de nouvelles communautés et suivre les membres.",
     route: "/admin-space/communaute-management",
   },
+  {
+    id: "fil-communaute",
+    icon: "message-text-outline" as const,
+    title: "Fil communautaire",
+    text: "Publier des annonces, encouragements et messages par communauté.",
+    route: "/admin-space/fil-communaute",
+  },
+  {
+    id: "temoignages",
+    icon: "message-star-outline" as const,
+    title: "Témoignages",
+    text: "Relire, corriger, approuver ou refuser les témoignages des membres.",
+    route: "/admin-space/temoignages",
+  },
+  {
+    id: "requetes-soutien",
+    icon: "heart-pulse" as const,
+    title: "Requêtes & soutien",
+    text: "Lire et traiter les demandes de prière, soutien et accompagnement.",
+    route: "/admin-space/requetes-soutien",
+  },
+  {
+    id: "dons",
+    icon: "hand-heart-outline" as const,
+    title: "Dons & offrandes",
+    text: "Suivre les intentions de dons, dîmes, offrandes et soutiens.",
+    route: "/admin-space/dons",
+  },
+  {
+    id: "donnees-rgpd",
+    icon: "shield-check-outline" as const,
+    title: "Demandes RGPD",
+    text: "Traiter les demandes d’accès, correction, suppression ou limitation des données.",
+    route: "/admin-space/donnees-rgpd",
+  },
 ];
+
+const EMPTY_COUNTS: AdminDashboardCounts = {
+  testimonies: 0,
+  supportRequests: 0,
+  donationIntents: 0,
+  privacyRequests: 0,
+  total: 0,
+};
 
 export default function AdminHomePage() {
   const { user } = useUser();
   const router = useRouter();
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [counts, setCounts] = useState<AdminDashboardCounts>(EMPTY_COUNTS);
 
   // Charger la photo locale
   useEffect(() => {
@@ -52,12 +108,44 @@ export default function AdminHomePage() {
           const savedImage = await AsyncStorage.getItem(`profile_image_${user.user_id}`);
           if (savedImage) setProfileImage(savedImage);
         }
-      } catch (e) {
-        console.log("Erreur chargement photo locale", e);
+      } catch {
+        // La photo locale est optionnelle : on garde simplement l'avatar par défaut.
       }
     };
     loadLocalPhoto();
   }, [user?.user_id]);
+
+  const loadDashboardCounts = useCallback(async () => {
+    try {
+      setCounts(await getAdminDashboardCounts());
+    } catch {
+      setCounts(EMPTY_COUNTS);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardCounts();
+    }, [loadDashboardCounts])
+  );
+
+  const getModuleBadge = (id: string) => {
+    if (id === "temoignages") return counts.testimonies;
+    if (id === "requetes-soutien") return counts.supportRequests;
+    if (id === "dons") return counts.donationIntents;
+    if (id === "donnees-rgpd") return counts.privacyRequests;
+    return 0;
+  };
+
+  const openModule = async (route: string) => {
+    try {
+      await markAdminRouteSeen(route);
+      await loadDashboardCounts();
+    } catch {
+      // La navigation reste prioritaire : si le marquage échoue, l'admin peut quand même traiter.
+    }
+    router.push(route as any);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -84,9 +172,19 @@ export default function AdminHomePage() {
                 <Text style={styles.adminName}>{user?.nom ?? "Administrateur"}</Text>
              </View>
           </View>
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push("/admin-space/profil")}>
-             <Ionicons name="settings-outline" size={22} color={COLORS.blueDark} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push("/admin-space/notifications" as any)}>
+               <Ionicons name="notifications-outline" size={22} color={COLORS.blueDark} />
+               {counts.total > 0 ? (
+                 <View style={styles.headerBadge}>
+                   <Text style={styles.headerBadgeText}>{counts.total > 99 ? "99+" : counts.total}</Text>
+                 </View>
+               ) : null}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push("/admin-space/profil")}>
+               <Ionicons name="settings-outline" size={22} color={COLORS.blueDark} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* HERO SACRED */}
@@ -113,17 +211,17 @@ export default function AdminHomePage() {
                  <MaterialCommunityIcons name="view-dashboard-outline" size={18} color={COLORS.gold} />
               </View>
               <View>
-                 <Text style={styles.statValue}>3</Text>
+                 <Text style={styles.statValue}>{ADMIN_MODULES.length}</Text>
                  <Text style={styles.statLabel}>MODULES ACTIFS</Text>
               </View>
            </View>
            <View style={styles.statCard}>
               <View style={styles.statIconBox}>
-                 <MaterialCommunityIcons name="account-tie-outline" size={18} color={COLORS.gold} />
+                 <MaterialCommunityIcons name="bell-badge-outline" size={18} color={COLORS.gold} />
               </View>
               <View>
-                 <Text style={styles.statValue}>Admin</Text>
-                 <Text style={styles.statLabel}>RÔLE ACTUEL</Text>
+                 <Text style={styles.statValue}>{counts.total}</Text>
+                 <Text style={styles.statLabel}>A TRAITER</Text>
               </View>
            </View>
         </View>
@@ -132,27 +230,35 @@ export default function AdminHomePage() {
         <View style={styles.modulesSection}>
            <Text style={styles.sectionTitle}>TABLEAU DE BORD</Text>
            <View style={styles.modulesGrid}>
-              {ADMIN_MODULES.map((item) => (
-                <TouchableOpacity 
-                  key={item.id} 
-                  style={styles.sacredCard}
-                  onPress={() => router.push(item.route as any)}
-                >
-                  <View style={styles.leftBar} />
-                  <View style={styles.cardTop}>
-                     <View style={styles.iconBox}>
-                        <LinearGradient colors={[COLORS.blueDark, '#1E293B']} style={styles.iconGrad}>
-                           <MaterialCommunityIcons name={item.icon as any} size={24} color={COLORS.gold} />
-                        </LinearGradient>
-                     </View>
-                     <View style={styles.cardContent}>
-                        <Text style={styles.cardTitle}>{item.title}</Text>
-                        <Text style={styles.cardSubtitle}>{item.text}</Text>
-                     </View>
-                     <Ionicons name="chevron-forward" size={18} color={COLORS.gold} />
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {ADMIN_MODULES.map((item) => {
+                const badgeCount = getModuleBadge(item.id);
+                return (
+                  <TouchableOpacity 
+                    key={item.id} 
+                    style={styles.sacredCard}
+                    onPress={() => openModule(item.route)}
+                  >
+                    <View style={styles.leftBar} />
+                    {badgeCount > 0 ? (
+                      <View style={styles.moduleBadge}>
+                        <Text style={styles.moduleBadgeText}>{badgeCount > 99 ? "99+" : badgeCount}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.cardTop}>
+                       <View style={styles.iconBox}>
+                          <LinearGradient colors={[COLORS.blueDark, '#1E293B']} style={styles.iconGrad}>
+                             <MaterialCommunityIcons name={item.icon as any} size={24} color={COLORS.gold} />
+                          </LinearGradient>
+                       </View>
+                       <View style={styles.cardContent}>
+                          <Text style={styles.cardTitle}>{item.title}</Text>
+                          <Text style={styles.cardSubtitle}>{item.text}</Text>
+                       </View>
+                       <Ionicons name="chevron-forward" size={18} color={COLORS.gold} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
            </View>
         </View>
 
@@ -180,6 +286,33 @@ const styles = StyleSheet.create({
   avatarImage: { width: '100%', height: '100%' },
   welcomeText: { fontSize: 10, fontWeight: '900', color: COLORS.gold, letterSpacing: 1.5 },
   adminName: { fontSize: 18, fontWeight: '900', color: COLORS.blueDark },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  notificationBtn: {
+    width: 45,
+    height: 45,
+    borderRadius: 23,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    position: 'relative',
+  },
+  headerBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 21,
+    height: 21,
+    borderRadius: 11,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  headerBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900' },
   settingsBtn: { width: 45, height: 45, borderRadius: 23, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#F1F5F9' },
 
   heroBox: { paddingHorizontal: 20, marginTop: 10 },
@@ -209,6 +342,22 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+  moduleBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    minWidth: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 7,
+    zIndex: 5,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  moduleBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
   leftBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 7, backgroundColor: COLORS.gold },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 15 },
   iconBox: { width: 54, height: 54, borderRadius: 16, overflow: 'hidden' },

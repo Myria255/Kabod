@@ -11,6 +11,7 @@ import {
   uploadPrayerPodcastAudio,
 } from "@/src/services/prayerPodcastSupabase";
 import { supabase } from "@/supabaseClient";
+import { notifyUsersFromAdmin } from "@/src/services/pushNotifications";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { LinearGradient } from 'expo-linear-gradient';
@@ -111,6 +112,15 @@ export default function AdminPrayerPodcastPage() {
         status: nextStatus, sourceType, externalUrl: sourceType === "external" ? externalUrl.trim() : null,
         audioUrl: sourceType === "upload" ? audioUrl : null, audioPath: sourceType === "upload" ? audioPath : null,
       });
+
+      if (nextStatus === "published") {
+        notifyUsersFromAdmin({
+          title: "Nouveau podcast Kabod",
+          body: title.trim(),
+          targetScope: "all",
+          data: { type: "podcast", route: "/(tabs)/podcast" },
+        }).catch((error) => console.warn("Notification podcast failed", error));
+      }
 
       resetForm(); await loadPage();
       Alert.alert(nextStatus === "published" ? "Publié" : "Brouillon sauvegardé");

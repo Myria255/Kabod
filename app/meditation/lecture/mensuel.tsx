@@ -1,4 +1,3 @@
-import { BIBLE } from "@/src/constants/bible";
 import { COLORS as THEME_COLORS } from "@/src/constants/colors";
 import {
   ensureLocalNotificationPermission,
@@ -10,6 +9,7 @@ import {
   resetMonthlyBookProgress,
 } from "@/src/services/monthlyChapterProgress";
 import { getDelayNotificationMessage } from "@/src/services/planNotifications";
+import { getMonthlyReadingPlan, type MonthlyPlanItem } from "@/src/services/readingPlans";
 import { getCompletedDays } from "@/src/stockage/readingProgress";
 import { getLastReadChaptersForBooks } from "@/src/stockage/readingPosition";
 import { supabase } from "@/supabaseClient";
@@ -39,31 +39,7 @@ const PLAN_START_KEY = "PLAN_START_DATE_V1";
 const PLAN_UNREAD_NOTIFICATION_KEY = "PLAN_UNREAD_NOTIFICATION_V1";
 const MONTHLY_MIGRATION_DONE_KEY = "MONTHLY_MIGRATION_DONE_V1";
 
-type PlanItem = {
-  mois: number;
-  bookId: string;
-  nombreChapitres: number;
-};
-
-function genererPlanMensuel(): PlanItem[] {
-  const livres = Object.entries(BIBLE);
-  const livresParMois = Math.ceil(livres.length / 12);
-  const plan: PlanItem[] = [];
-  let index = 0;
-
-  for (let mois = 1; mois <= 12; mois++) {
-    if (index >= livres.length) break;
-    const [bookId, contenu] = livres[index] as [string, Record<string, unknown>];
-    plan.push({
-      mois,
-      bookId,
-      nombreChapitres: Object.keys(contenu).length,
-    });
-    index += livresParMois;
-  }
-
-  return plan;
-}
+type PlanItem = MonthlyPlanItem;
 
 function getCurrentMonthFromCompleted(completed: number[]): number {
   const done = new Set(completed);
@@ -75,7 +51,7 @@ function getCurrentMonthFromCompleted(completed: number[]): number {
 
 export default function PlanMensuelPremium() {
   const router = useRouter();
-  const plan = useMemo(() => genererPlanMensuel(), []);
+  const plan = useMemo(() => getMonthlyReadingPlan(), []);
   const migrationDoneRef = useRef(false);
   const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -360,8 +336,8 @@ export default function PlanMensuelPremium() {
                 <Feather name="book-open" size={20} color={COLORS.blueDark} />
               </View>
             </View>
-            <Text style={styles.heroTitle}>La Bible en 12 mois</Text>
-            <Text style={styles.heroSub}>Avancez livre par livre, avec une reprise directe là où vous en êtes.</Text>
+            <Text style={styles.heroTitle}>12 livres à approfondir</Text>
+            <Text style={styles.heroSub}>Avancez chaque mois dans un livre clé, avec une reprise directe là où vous en êtes.</Text>
 
             <View style={styles.progressRow}>
               <View style={styles.miniProgressContainer}>

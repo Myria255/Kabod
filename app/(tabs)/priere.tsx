@@ -38,6 +38,22 @@ export default function PrayerTabPage() {
           </View>
         </Pressable>
 
+        <Pressable onPress={() => router.push("/priere/requetes" as any)}>
+          <View style={styles.requestCard}>
+            <View style={styles.requestIcon}>
+              <Ionicons name="chatbox-ellipses-outline" size={24} color={COLORS.gold} />
+            </View>
+            <View style={styles.mainBody}>
+              <Text style={styles.mainLabel}>Besoin d’aide ?</Text>
+              <Text style={styles.requestTitle}>Requête de prière / soutien</Text>
+              <Text style={styles.requestText}>Envoyer une demande confidentielle à l’équipe Kabod.</Text>
+            </View>
+            <View style={styles.requestBadge}>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.white} />
+            </View>
+          </View>
+        </Pressable>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Vos outils</Text>
           <View style={styles.listCard}>
@@ -102,6 +118,35 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     backgroundColor: COLORS.grayLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  requestCard: {
+    minHeight: 118,
+    borderRadius: 24,
+    backgroundColor: COLORS.blueDark,
+    padding: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  requestIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(217,183,95,0.3)",
+  },
+  requestTitle: { color: COLORS.white, fontSize: 20, fontWeight: "900", marginTop: 3 },
+  requestText: { color: "#D1D5DB", fontSize: 13, lineHeight: 19, marginTop: 5 },
+  requestBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
   },

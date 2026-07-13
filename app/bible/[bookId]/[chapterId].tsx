@@ -26,11 +26,12 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BIBLE, getChapters, getVerses } from "@/src/constants/bible";
+import { getChapters, getVerses } from "@/src/constants/bible";
 import {
   getMonthlyReadCountForBook,
   markMonthlyChapterAsRead,
 } from "@/src/services/monthlyChapterProgress";
+import { getMonthlyReadingPlan, type MonthlyPlanItem } from "@/src/services/readingPlans";
 import { saveLastReadChapter } from "@/src/stockage/readingPosition";
 import { supabase } from "@/supabaseClient";
 
@@ -56,33 +57,7 @@ type Verse = {
 const STORAGE_KEY = "VERSE_ACTIONS_V2";
 const ANNUAL_DAY_READ_KEY = "ANNUAL_DAY_READ_V1";
 
-type MonthlyPlanItem = {
-  mois: number;
-  bookId: string;
-  nombreChapitres: number;
-};
-
-function buildMonthlyPlanItems(): MonthlyPlanItem[] {
-  const livres = Object.entries(BIBLE);
-  const livresParMois = Math.ceil(livres.length / 12);
-  const plan: MonthlyPlanItem[] = [];
-  let index = 0;
-
-  for (let mois = 1; mois <= 12; mois++) {
-    if (index >= livres.length) break;
-    const [monthlyBookId, contenu] = livres[index] as [string, Record<string, unknown>];
-    plan.push({
-      mois,
-      bookId: monthlyBookId,
-      nombreChapitres: Object.keys(contenu).length,
-    });
-    index += livresParMois;
-  }
-
-  return plan;
-}
-
-const MONTHLY_PLAN_ITEMS = buildMonthlyPlanItems();
+const MONTHLY_PLAN_ITEMS: MonthlyPlanItem[] = getMonthlyReadingPlan();
 
 /* ================= COLORS ================= */
 

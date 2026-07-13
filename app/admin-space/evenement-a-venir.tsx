@@ -7,6 +7,7 @@ import {
   type ChurchEventStatus,
 } from "@/src/services/churchEventSupabase";
 import { supabase } from "@/supabaseClient";
+import { notifyUsersFromAdmin } from "@/src/services/pushNotifications";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
@@ -14,8 +15,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
-  Linking,
   Pressable,
   ScrollView,
   StatusBar,
@@ -27,8 +26,6 @@ import {
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const { width } = Dimensions.get('window');
 
 function isValidUrl(value: string) {
   if (!value) return true;
@@ -71,7 +68,7 @@ export default function EventAdminPage() {
   const [registrationUrl, setRegistrationUrl] = useState("");
   const [status, setStatus] = useState<ChurchEventStatus>("draft");
   const [items, setItems] = useState<ChurchEventRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { loadPage(); }, []);
@@ -127,6 +124,15 @@ export default function EventAdminPage() {
         status: nextStatus,
       });
 
+      if (nextStatus === "published") {
+        notifyUsersFromAdmin({
+          title: "Nouvel événement Kabod",
+          body: cleanTitle,
+          targetScope: "all",
+          data: { type: "event", route: "/communaute/evenements" },
+        }).catch((error) => console.warn("Notification événement failed", error));
+      }
+
       resetForm(); await loadPage();
       Alert.alert("Événement enregistré", "Le calendrier a été mis à jour.");
     } catch (error: any) {
@@ -145,18 +151,11 @@ export default function EventAdminPage() {
           await deleteChurchEvent(item.id!);
           if (eventId === item.id) resetForm();
           await loadPage();
-        } catch (error: any) {
+        } catch {
           Alert.alert("Échec", "La suppression a échoué.");
         }
       }}
     ]);
-  }
-
-  async function openRegistration(url: string | null) {
-    if (!url) return;
-    const supported = await Linking.canOpenURL(url);
-    if (supported) await Linking.openURL(url);
-    else Alert.alert("Erreur", "Lien indisponible.");
   }
 
   return (

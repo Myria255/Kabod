@@ -91,10 +91,6 @@ export default function AdminProfilePage() {
     );
   }
 
-  const showComingSoon = () => {
-    Alert.alert("Bientôt disponible", "La configuration du compte sera activée dans une prochaine version.");
-  };
-
   const NavItem = ({ icon, title, onPress, isLast = false }: any) => (
     <TouchableOpacity 
       activeOpacity={0.7} 
@@ -167,11 +163,6 @@ export default function AdminProfilePage() {
           </View>
           
           <View style={styles.card}>
-            <NavItem 
-              icon="settings-outline" 
-              title="Configuration du compte" 
-              onPress={showComingSoon} 
-            />
             <TouchableOpacity style={styles.logoutRow} onPress={handleLogout}>
               <View style={styles.logoutIconWrapper}>
                 <Ionicons name="log-out-outline" size={20} color="#EF4444" />

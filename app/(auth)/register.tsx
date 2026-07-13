@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import { saveRegistrationDraft } from '@/src/services/registration';
 
+const RGPD_CONSENT_TEXT_VERSION = "2026-07-13-v1";
+
 // Palette de couleurs Premium Light
 const COLORS = {
   white: "#FFFFFF",
@@ -170,6 +172,7 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rgpdConsent, setRgpdConsent] = useState(false);
 
   const [countries, setCountries] = useState<{ label: string; value: string }[]>([]);
   const [cities, setCities] = useState<{ label: string; value: string }[]>([]);
@@ -194,6 +197,12 @@ export default function RegisterScreen() {
       ville: 'Ville',
       email: 'Email',
       password: 'Mot de passe',
+      privacyTitle: 'Protection des données',
+      privacyConsent:
+        "J'accepte que Kabod collecte et utilise mes données d'inscription pour créer mon compte, gérer mon accès à l'application, mes communautés, mes contenus et mes notifications.",
+      privacyNotice:
+        "Vous pourrez demander l’accès, la modification ou la suppression de vos données.",
+      privacyRequired: 'Vous devez accepter la collecte des données nécessaires pour créer votre compte.',
       precedent: 'Retour',
       suivant: 'Continuer',
       selectSexe: [
@@ -219,6 +228,12 @@ export default function RegisterScreen() {
       ville: 'City',
       email: 'Email',
       password: 'Password',
+      privacyTitle: 'Data protection',
+      privacyConsent:
+        'I agree that Kabod may collect and use my registration data to create my account, manage my app access, communities, content and notifications.',
+      privacyNotice:
+        'You may request access, correction or deletion of your data.',
+      privacyRequired: 'You must accept the data collection required to create your account.',
       precedent: 'Back',
       suivant: 'Continue',
       selectSexe: [
@@ -319,6 +334,11 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (!rgpdConsent) {
+      alert(t.privacyRequired);
+      return;
+    }
+
     const userData = {
       prenom: prenom.trim(),
       nom: nom.trim(),
@@ -330,6 +350,9 @@ export default function RegisterScreen() {
       ville,
       email: normalizedEmail,
       password,
+      rgpdConsent: true,
+      rgpdConsentTextVersion: RGPD_CONSENT_TEXT_VERSION,
+      rgpdConsentAcceptedAt: new Date().toISOString(),
     };
 
     try {
@@ -524,6 +547,36 @@ export default function RegisterScreen() {
               />
             </TouchableOpacity>
           </View>
+
+          <View style={styles.privacyCard}>
+            <View style={styles.privacyHeader}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.gold} />
+              <Text style={styles.privacyTitle}>{t.privacyTitle}</Text>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.checkboxRow}
+              onPress={() => setRgpdConsent((value) => !value)}
+            >
+              <View style={[styles.checkbox, rgpdConsent && styles.checkboxChecked]}>
+                {rgpdConsent ? <Ionicons name="checkmark" size={16} color={COLORS.white} /> : null}
+              </View>
+              <Text style={styles.checkboxText}>{t.privacyConsent}</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.privacyNotice}>{t.privacyNotice}</Text>
+
+            <View style={styles.legalLinks}>
+              <TouchableOpacity onPress={() => router.push("/legal/privacy" as any)}>
+                <Text style={styles.legalLinkText}>Politique de confidentialité</Text>
+              </TouchableOpacity>
+              <Text style={styles.legalSeparator}>•</Text>
+              <TouchableOpacity onPress={() => router.push("/legal/terms" as any)}>
+                <Text style={styles.legalLinkText}>Conditions d’utilisation</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Animated.View>
 
         {/* Buttons */}
@@ -535,7 +588,7 @@ export default function RegisterScreen() {
 
           <TouchableOpacity onPress={handleNext} activeOpacity={0.9}>
             <LinearGradient
-              colors={[COLORS.deepBlue, "#1E293B"]}
+              colors={rgpdConsent ? [COLORS.deepBlue, "#1E293B"] : ["#94A3B8", "#64748B"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.nextButton}
@@ -707,6 +760,76 @@ const styles = StyleSheet.create({
   },
   pickerWrapperDisabled: { backgroundColor: COLORS.bgLight, opacity: 0.6 },
   picker: { color: COLORS.deepBlue, width: '110%', marginLeft: -10 },
+
+  privacyCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    padding: 14,
+    gap: 10,
+  },
+  privacyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  privacyTitle: {
+    color: COLORS.deepBlue,
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.gold,
+    borderColor: COLORS.gold,
+  },
+  checkboxText: {
+    flex: 1,
+    color: COLORS.deepBlue,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 19,
+  },
+  privacyNotice: {
+    color: COLORS.grayText,
+    fontSize: 12,
+    lineHeight: 17,
+    paddingLeft: 34,
+  },
+  legalLinks: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+    paddingLeft: 34,
+  },
+  legalLinkText: {
+    color: COLORS.gold,
+    fontSize: 12,
+    fontWeight: "900",
+    textDecorationLine: "underline",
+  },
+  legalSeparator: {
+    color: COLORS.grayText,
+    fontSize: 12,
+    fontWeight: "900",
+  },
 
   buttonContainer: {
     flexDirection: 'row',

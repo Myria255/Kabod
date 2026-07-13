@@ -5,13 +5,14 @@ import {
   getLatestDailyPrayerTopic,
   type DailyPrayerTopicRecord,
 } from "@/src/services/dailyPrayerTopicSupabase";
+import { getUnreadAppNotificationCount } from "@/src/services/appNotifications";
 import { getLatestPrayerPodcast, type PrayerPodcastRecord } from "@/src/services/prayerPodcastSupabase";
 import { calculateProgress, getCompletedDays } from "@/src/stockage/readingProgress";
 import { useUser } from "@/src/context/UserContext";
 import { supabase } from "@/supabaseClient";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -90,6 +91,7 @@ export default function HomePage() {
   const [latestPodcast, setLatestPodcast] = useState<PrayerPodcastRecord | null>(null);
   const [readingSummary, setReadingSummary] = useState<ReadingSummary>(null);
   const [subjectCount, setSubjectCount] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [loadingHome, setLoadingHome] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -107,15 +109,17 @@ export default function HomePage() {
     setLoadingHome(true);
 
     const userId = user?.user_id ?? null;
-    const [storedAdminPrayer, storedDailyTopic, storedPodcast] = await Promise.all([
+    const [storedAdminPrayer, storedDailyTopic, storedPodcast, unreadCount] = await Promise.all([
       getLatestAdminPrayer("published").catch(() => null),
       getLatestDailyPrayerTopic("published").catch(() => null),
       getLatestPrayerPodcast("published").catch(() => null),
+      getUnreadAppNotificationCount().catch(() => 0),
     ]);
 
     setAdminPrayer(storedAdminPrayer);
     setDailyTopic(storedDailyTopic);
     setLatestPodcast(storedPodcast);
+    setUnreadNotifications(unreadCount);
     setVerse(getAdminVerse(storedAdminPrayer) ?? getDailyLocalVerse());
 
     if (userId) {
@@ -173,6 +177,14 @@ export default function HomePage() {
   useEffect(() => {
     loadHomeData();
   }, [loadHomeData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      getUnreadAppNotificationCount()
+        .then(setUnreadNotifications)
+        .catch(() => setUnreadNotifications(0));
+    }, [])
+  );
 
   async function refreshHome() {
     setRefreshing(true);
@@ -242,13 +254,26 @@ export default function HomePage() {
             <Text style={styles.subtitle}>Votre espace du jour, mis à jour avec vos données.</Text>
           </View>
 
-          <Pressable style={styles.avatar} onPress={() => router.push("/profil")}>
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarText}>{userLoading ? "..." : userInitial}</Text>
-            )}
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable style={styles.notificationButton} onPress={() => router.push("/notifications")}>
+              <Ionicons name="notifications-outline" size={22} color={COLORS.blueDark} />
+              {unreadNotifications > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+
+            <Pressable style={styles.avatar} onPress={() => router.push("/profil")}>
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>{userLoading ? "..." : userInitial}</Text>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         <ImageBackground
@@ -395,9 +420,35 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   headerText: { flex: 1 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   eyebrow: { color: COLORS.gold, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
   title: { color: COLORS.blueDark, fontSize: 28, fontWeight: "900" },
   subtitle: { marginTop: 4, color: COLORS.gray, fontSize: 13, lineHeight: 18 },
+  notificationButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -5,
+    right: -4,
+    minWidth: 19,
+    height: 19,
+    borderRadius: 10,
+    paddingHorizontal: 4,
+    backgroundColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: COLORS.grayLight,
+  },
+  notificationBadgeText: { color: COLORS.blueDark, fontSize: 10, fontWeight: "900" },
   avatar: {
     width: 44,
     height: 44,

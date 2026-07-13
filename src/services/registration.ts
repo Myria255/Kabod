@@ -12,6 +12,9 @@ export type RegistrationProfileInput = {
   profession: string;
   pays: string | null;
   ville: string | null;
+  rgpdConsent: boolean;
+  rgpdConsentTextVersion: string;
+  rgpdConsentAcceptedAt: string;
 };
 
 export type RegistrationInput = RegistrationProfileInput & {
@@ -48,6 +51,9 @@ function buildProfile(input: RegistrationInput) {
     ville: input.ville,
     appartient_communaute: input.appartientCommunaute,
     type_communaute: input.appartientCommunaute ? input.typeCommunaute : null,
+    rgpd_consent: input.rgpdConsent,
+    rgpd_consent_text_version: input.rgpdConsentTextVersion,
+    rgpd_consent_accepted_at: input.rgpdConsentAcceptedAt,
   };
 }
 

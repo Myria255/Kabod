@@ -136,6 +136,17 @@ export default function BibleTabPage() {
               </Pressable>
             </View>
 
+            <Pressable style={styles.documentsCard} onPress={() => router.push("/bibliotheque/livres" as any)}>
+              <View style={styles.documentsIcon}>
+                <Ionicons name="library-outline" size={22} color={COLORS.gold} />
+              </View>
+              <View style={styles.documentsCopy}>
+                <Text style={styles.documentsTitle}>Livres & documents</Text>
+                <Text style={styles.documentsText}>Lire ou télécharger les ressources publiées par Kabod.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.gray} />
+            </Pressable>
+
             <View style={styles.search}>
               <Ionicons name="search-outline" size={18} color={COLORS.gray} />
               <TextInput
@@ -276,6 +287,26 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryText: { color: COLORS.white, fontSize: 15, fontWeight: "900" },
+  documentsCard: {
+    minHeight: 76,
+    borderRadius: 22,
+    backgroundColor: COLORS.blueDark,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  documentsIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  documentsCopy: { flex: 1, gap: 3 },
+  documentsTitle: { color: COLORS.white, fontSize: 16, fontWeight: "900" },
+  documentsText: { color: "#D1D5DB", fontSize: 12.5, lineHeight: 18 },
   search: {
     height: 54,
     borderRadius: 18,

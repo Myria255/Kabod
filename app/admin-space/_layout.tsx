@@ -109,13 +109,55 @@ export default function AdminTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="livres"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="communaute-create"
         options={{
           href: null,
         }}
       />
       <Tabs.Screen
+        name="fil-communaute"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="temoignages"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="requetes-soutien"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="replay-evenements"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="dons"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="donnees-rgpd"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
         options={{
           href: null,
         }}

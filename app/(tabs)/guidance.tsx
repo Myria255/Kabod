@@ -29,7 +29,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const STARTER_PROMPTS = [
@@ -42,7 +41,7 @@ const STARTER_PROMPTS = [
 const GUIDANCE_PATHS = [
   {
     id: "discern",
-    title: "Discerner",
+    title: "Y voir clair",
     subtitle: "Questions guidées",
     icon: "compass-outline" as const,
     prompt: "Aide-moi à discerner une situation avec des questions simples.",
@@ -57,10 +56,11 @@ const GUIDANCE_PATHS = [
   {
     id: "bible",
     title: "Comprendre",
-    subtitle: "Avec une référence",
+    subtitle: "Avec la Bible",
     icon: "book-outline" as const,
     prompt: "Explique Jean 3 16 sans inventer de verset.",
   },
+  
 ];
 
 function formatConversationDate(value: string) {
@@ -86,7 +86,6 @@ type PendingForm = {
 
 export default function GuidanceTabPage() {
   const { user } = useUser();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
   const [conversations, setConversations] = useState<KabodAssistantConversation[]>([]);
@@ -100,6 +99,7 @@ export default function GuidanceTabPage() {
   const [error, setError] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, Record<string, string>>>({});
   const [pendingForm, setPendingForm] = useState<PendingForm | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const userId = user?.user_id ?? null;
   const userName = user?.nom ?? null;
@@ -443,29 +443,6 @@ export default function GuidanceTabPage() {
     );
   }
 
-  function renderGuidanceNav() {
-    return (
-      <View style={[styles.guidanceNav, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-        <Pressable style={styles.navItem} onPress={() => startConversation()}>
-          <Ionicons name="chatbubble-outline" size={20} color={activeConversationId ? COLORS.gold : COLORS.gray} />
-          <Text style={[styles.navText, activeConversationId && styles.navTextActive]}>Chat</Text>
-        </Pressable>
-        <Pressable style={[styles.navItem, !activeConversationId && styles.navItemActive]} onPress={() => setActiveConversationId(null)}>
-          <Ionicons name="time-outline" size={20} color={!activeConversationId ? COLORS.blueDark : COLORS.gray} />
-          <Text style={[styles.navText, !activeConversationId && styles.navTextActive]}>Historique</Text>
-        </Pressable>
-        <Pressable style={styles.navItem} onPress={() => router.push("/bibliotheque")}>
-          <Ionicons name="book-outline" size={20} color={COLORS.gray} />
-          <Text style={styles.navText}>Bible</Text>
-        </Pressable>
-        <Pressable style={styles.navItem} onPress={() => router.push("/communaute")}>
-          <Ionicons name="people-outline" size={20} color={COLORS.gray} />
-          <Text style={styles.navText}>Communaute</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <KeyboardAvoidingView
@@ -474,8 +451,21 @@ export default function GuidanceTabPage() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
         <View style={styles.header}>
-          <Pressable style={styles.headerIconButton} onPress={() => (activeConversationId ? setActiveConversationId(null) : undefined)}>
-            <Ionicons name={activeConversationId ? "chevron-back" : "menu"} size={22} color={COLORS.blueDark} />
+          <Pressable
+            style={[styles.headerIconButton, !activeConversationId && showHistory && styles.headerIconButtonActive]}
+            onPress={() => {
+              if (activeConversationId) {
+                setActiveConversationId(null);
+                return;
+              }
+              setShowHistory((value) => !value);
+            }}
+          >
+            {activeConversationId ? (
+              <Ionicons name="chevron-back" size={22} color={COLORS.blueDark} />
+            ) : (
+              <Text style={[styles.aiButtonText, showHistory && styles.aiButtonTextActive]}>IA</Text>
+            )}
           </Pressable>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>Kabod</Text>
@@ -506,73 +496,52 @@ export default function GuidanceTabPage() {
           >
             {!activeConversationId && (
               <>
-                <View style={styles.historyIntro}>
-                  <Text style={styles.historyTitle}>Historique</Text>
-                  <Text style={styles.historyText}>Retrouvez vos echanges spirituels passes.</Text>
-                </View>
-
-                <View style={styles.searchBox}>
-                  <Ionicons name="search" size={18} color={COLORS.gray} />
-                  <TextInput
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    placeholder="Rechercher une conversation..."
-                    placeholderTextColor={COLORS.gray}
-                    style={styles.searchInput}
-                  />
-                </View>
-
-                <View style={styles.pathGrid}>
-                  {GUIDANCE_PATHS.map((path) => (
-                    <Pressable key={path.id} style={styles.intentChip} onPress={() => startConversation(path.prompt)}>
-                      <Ionicons name={path.icon} size={16} color={COLORS.blueDark} />
-                      <Text style={styles.intentChipText}>{path.title}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-
-                {filteredConversations.length > 0 ? (
-                  <>
-                    {renderConversationSection("AUJOURD'HUI", todayConversations)}
-                    {renderConversationSection("HIER", yesterdayConversations)}
-                    {renderConversationSection("PLUS ANCIEN", olderConversations)}
-                  </>
-                ) : (
-                  <View style={styles.emptyState}>
-                    <Ionicons name="chatbubbles-outline" size={24} color={COLORS.gold} />
-                    <Text style={styles.emptyTitle}>Aucune discussion trouvee</Text>
-                    <Text style={styles.emptyText}>Commencez une nouvelle conversation avec Kabod.</Text>
-                  </View>
-                )}
-
-                <Pressable style={styles.floatingStartButton} onPress={() => startConversation()}>
-                  <Ionicons name="add" size={26} color={COLORS.white} />
-                </Pressable>
-              </>
-            )}
-            {false && (
-              <>
                 <View style={styles.heroPanel}>
-                  <View style={styles.heroMark}>
-                    <Ionicons name="sparkles" size={22} color={COLORS.blueDark} />
+                  <View style={styles.heroTopRow}>
+                    <View style={styles.heroMark}>
+                      <Ionicons name="sparkles" size={22} color={COLORS.blueDark} />
+                    </View>
+                    <View style={styles.heroStatusPill}>
+                      <View style={styles.heroStatusDot} />
+                      <Text style={styles.heroStatusText}>{statusLabel}</Text>
+                    </View>
                   </View>
-                  <Text style={styles.heroTitle}>Un espace pour réfléchir avec Dieu</Text>
+                  <Text style={styles.heroTitle}>Déposez ce que vous vivez.</Text>
                   <Text style={styles.heroText}>
-                    Kabod ne répond pas seulement. Il vous aide à nommer, discerner et poser un prochain pas.
+                    Kabod vous aide à ralentir, clarifier votre pensée, prier avec des mots simples et choisir un
+                    prochain pas.
                   </Text>
+                  <View style={styles.trustRow}>
+                    <View style={styles.trustPill}>
+                      <Ionicons name="lock-closed-outline" size={13} color={COLORS.blueSoft} />
+                      <Text style={styles.trustText}>Personnel</Text>
+                    </View>
+                    <View style={styles.trustPill}>
+                      <Ionicons name="leaf-outline" size={13} color={COLORS.blueSoft} />
+                      <Text style={styles.trustText}>Paisible</Text>
+                    </View>
+                    <View style={styles.trustPill}>
+                      <Ionicons name="compass-outline" size={13} color={COLORS.blueSoft} />
+                      <Text style={styles.trustText}>Guidé</Text>
+                    </View>
+                  </View>
+                  <Pressable style={styles.heroStartButton} onPress={() => startConversation()}>
+                    <View style={styles.heroStartIcon}>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.blueDark} />
+                    </View>
+                    <View style={styles.heroStartCopy}>
+                      <Text style={styles.heroStartTitle}>Commencer une guidance</Text>
+                      <Text style={styles.heroStartText}>Un échange simple pour remettre de l’ordre en vous</Text>
+                    </View>
+                    <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
+                  </Pressable>
                 </View>
 
-                <View style={styles.pathGrid}>
-                  <Pressable style={styles.primaryStartCard} onPress={() => startConversation()}>
-                    <View style={styles.primaryStartIcon}>
-                      <Ionicons name="add" size={20} color={COLORS.blueDark} />
-                    </View>
-                    <View style={styles.primaryStartCopy}>
-                      <Text style={styles.primaryStartTitle}>Nouvelle discussion</Text>
-                      <Text style={styles.primaryStartText}>Écrire librement à Kabod</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={COLORS.gray} />
-                  </Pressable>
+                <View style={styles.sectionHeader}>
+                  <View>
+                    <Text style={styles.sectionTitle}>Choisir une piste</Text>
+                    <Text style={styles.sectionHint}>Touchez une carte si vous ne savez pas par où commencer.</Text>
+                  </View>
                 </View>
 
                 <View style={styles.pathGrid}>
@@ -587,23 +556,6 @@ export default function GuidanceTabPage() {
                   ))}
                 </View>
 
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Vos discussions</Text>
-                  <Text style={styles.sectionCount}>{conversations.length}</Text>
-                </View>
-
-                {conversations.length > 0 ? (
-                  <View style={styles.conversationList}>
-                    {conversations.map(renderConversationItem)}
-                  </View>
-                ) : (
-                  <View style={styles.emptyState}>
-                    <Ionicons name="chatbubbles-outline" size={24} color={COLORS.gold} />
-                    <Text style={styles.emptyTitle}>Aucune discussion pour le moment</Text>
-                    <Text style={styles.emptyText}>Commencez par une question, une prière ou une réflexion.</Text>
-                  </View>
-                )}
-
                 <View style={styles.starters}>
                   {STARTER_PROMPTS.map((prompt) => (
                     <Pressable key={prompt} style={styles.starter} onPress={() => startConversation(prompt)}>
@@ -612,11 +564,72 @@ export default function GuidanceTabPage() {
                     </Pressable>
                   ))}
                 </View>
+
+                {showHistory && (
+                  <View style={styles.historyPanel}>
+                    <View style={styles.historyIntro}>
+                      <View>
+                        <Text style={styles.historyTitle}>Vos discussions</Text>
+                        <Text style={styles.historyText}>Reprenez là où vous vous étiez arrêté.</Text>
+                      </View>
+                      <Pressable style={styles.historyCloseButton} onPress={() => setShowHistory(false)}>
+                        <Ionicons name="close" size={18} color={COLORS.blueDark} />
+                      </Pressable>
+                    </View>
+
+                    <View style={styles.searchBox}>
+                      <Ionicons name="search" size={18} color={COLORS.gray} />
+                      <TextInput
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholder="Rechercher une conversation..."
+                        placeholderTextColor={COLORS.gray}
+                        style={styles.searchInput}
+                      />
+                      {searchQuery.length > 0 && (
+                        <Pressable onPress={() => setSearchQuery("")}>
+                          <Ionicons name="close-circle" size={18} color={COLORS.gray} />
+                        </Pressable>
+                      )}
+                    </View>
+
+                    {filteredConversations.length > 0 ? (
+                      <>
+                        {renderConversationSection("AUJOURD'HUI", todayConversations)}
+                        {renderConversationSection("HIER", yesterdayConversations)}
+                        {renderConversationSection("PLUS ANCIEN", olderConversations)}
+                      </>
+                    ) : (
+                      <View style={styles.emptyState}>
+                        <Ionicons name="chatbubbles-outline" size={24} color={COLORS.gold} />
+                        <Text style={styles.emptyTitle}>
+                          {searchQuery.trim() ? "Aucune discussion trouvée" : "Aucune discussion pour le moment"}
+                        </Text>
+                        <Text style={styles.emptyText}>
+                          {searchQuery.trim()
+                            ? "Essayez un autre mot-clé ou démarrez une nouvelle guidance."
+                            : "Commencez par une question, une prière ou une réflexion."}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
               </>
             )}
             {activeConversationId && (
               <View style={styles.todayChip}>
                 <Text style={styles.todayChipText}>{"AUJOURD'HUI"}</Text>
+              </View>
+            )}
+            {activeConversationId && messages.length <= 1 && (
+              <View style={styles.chatStarters}>
+                <Text style={styles.chatStartersTitle}>Commencer avec une phrase simple</Text>
+                {STARTER_PROMPTS.slice(0, 3).map((prompt) => (
+                  <Pressable key={prompt} style={styles.chatStarter} onPress={() => submitMessage(prompt)}>
+                    <Text style={styles.chatStarterText}>{prompt}</Text>
+                    <Ionicons name="arrow-forward" size={14} color={COLORS.gold} />
+                  </Pressable>
+                ))}
               </View>
             )}
             {messages.map(renderMessage)}
@@ -650,20 +663,19 @@ export default function GuidanceTabPage() {
             </Pressable>
           </View>
         </View>}
-        {!activeConversationId && renderGuidanceNav()}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.grayLight },
+  safe: { flex: 1, backgroundColor: "#F7F3EA" },
   keyboard: { flex: 1 },
   header: {
-    backgroundColor: COLORS.grayLight,
-    paddingHorizontal: 22,
+    backgroundColor: "#F7F3EA",
+    paddingHorizontal: 18,
     paddingTop: 8,
-    paddingBottom: 10,
+    paddingBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -672,16 +684,22 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 14,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
   },
+  headerIconButtonActive: { backgroundColor: COLORS.blueDark, borderColor: COLORS.blueDark },
+  aiButtonText: { color: COLORS.gold, fontSize: 12, fontWeight: "900", letterSpacing: 0.5 },
+  aiButtonTextActive: { color: COLORS.white },
   headerCenter: { flex: 1, alignItems: "center", justifyContent: "center" },
-  headerTitle: { color: COLORS.gold, fontSize: 16, fontWeight: "900" },
-  headerSubtitle: { color: COLORS.gray, fontSize: 10.5, fontWeight: "700", marginTop: 2 },
+  headerTitle: { color: COLORS.blueDark, fontSize: 18, fontWeight: "900" },
+  headerSubtitle: { color: COLORS.gray, fontSize: 11.5, fontWeight: "800", marginTop: 2 },
   profileButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 15,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -706,6 +724,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 16,
     elevation: 2,
+
   },
   agentRow: {
     flex: 1,
@@ -753,17 +772,37 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 720,
     alignSelf: "center",
-    paddingHorizontal: 14,
-    paddingTop: 18,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    gap: 14,
+  },
+  historyPanel: {
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.82)",
+    borderWidth: 1,
+    borderColor: "rgba(230,234,242,0.9)",
+    padding: 12,
     gap: 12,
   },
   historyIntro: {
-    paddingHorizontal: 4,
-    paddingTop: 18,
-    gap: 5,
+    paddingHorizontal: 2,
+    gap: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   historyTitle: { color: COLORS.blueDark, fontSize: 22, fontWeight: "900" },
   historyText: { color: COLORS.gray, fontSize: 13.5, lineHeight: 20, fontWeight: "600" },
+  historyCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 13,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   searchBox: {
     minHeight: 48,
     borderRadius: 14,
@@ -834,23 +873,91 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   heroPanel: {
-    borderRadius: 24,
+    borderRadius: 30,
     backgroundColor: COLORS.blueDark,
-    padding: 20,
+    padding: 22,
+    gap: 14,
+    marginBottom: 4,
+    shadowColor: COLORS.blueDark,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.16,
+    shadowRadius: 22,
+    elevation: 5,
+  },
+  heroTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
-    marginBottom: 2,
   },
   heroMark: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 54,
+    height: 54,
+    borderRadius: 19,
     backgroundColor: COLORS.gold,
     alignItems: "center",
     justifyContent: "center",
   },
-  heroTitle: { color: COLORS.white, fontSize: 24, lineHeight: 30, fontWeight: "900" },
-  heroText: { color: COLORS.blueSoft, fontSize: 14, lineHeight: 21, fontWeight: "600" },
-  pathGrid: { flexDirection: "row", gap: 9 },
+  heroStatusPill: {
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  heroStatusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: COLORS.emerald,
+  },
+  heroStatusText: {
+    color: COLORS.blueSoft,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  heroTitle: { color: COLORS.white, fontSize: 30, lineHeight: 36, fontWeight: "900", letterSpacing: -0.6 },
+  heroText: { color: COLORS.blueSoft, fontSize: 14.5, lineHeight: 22, fontWeight: "600" },
+  trustRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  trustPill: {
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  trustText: { color: COLORS.blueSoft, fontSize: 11.5, fontWeight: "900" },
+  heroStartButton: {
+    minHeight: 72,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.22)",
+    padding: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  heroStartIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    backgroundColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroStartCopy: { flex: 1, minWidth: 0 },
+  heroStartTitle: { color: COLORS.white, fontSize: 15, fontWeight: "900" },
+  heroStartText: { color: COLORS.blueSoft, fontSize: 12.5, lineHeight: 17, fontWeight: "600", marginTop: 2 },
+  pathGrid: { flexDirection: "row", gap: 10 },
   primaryStartCard: {
     flex: 1,
     minHeight: 72,
@@ -876,13 +983,18 @@ const styles = StyleSheet.create({
   primaryStartText: { color: COLORS.gray, fontSize: 12.5, fontWeight: "700", marginTop: 3 },
   pathCard: {
     flex: 1,
-    minHeight: 112,
-    borderRadius: 18,
+    minHeight: 128,
+    borderRadius: 22,
     backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 12,
+    borderColor: "rgba(217,183,95,0.28)",
+    padding: 13,
     justifyContent: "space-between",
+    shadowColor: COLORS.blueDark,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    elevation: 1,
   },
   pathIcon: {
     width: 34,
@@ -896,12 +1008,12 @@ const styles = StyleSheet.create({
   pathSubtitle: { color: COLORS.gray, fontSize: 11.5, lineHeight: 16, fontWeight: "700" },
   starters: { gap: 9, marginBottom: 4 },
   starter: {
-    minHeight: 48,
-    borderRadius: 16,
+    minHeight: 50,
+    borderRadius: 18,
     backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 12,
+    borderColor: "rgba(230,234,242,0.9)",
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -914,6 +1026,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   sectionTitle: { color: COLORS.blueDark, fontSize: 16, fontWeight: "900" },
+  sectionHint: { marginTop: 3, color: COLORS.gray, fontSize: 12.5, lineHeight: 17, fontWeight: "600" },
   sectionCount: {
     minWidth: 28,
     height: 28,
@@ -975,6 +1088,26 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: COLORS.blueDark, fontSize: 14, fontWeight: "900", textAlign: "center" },
   emptyText: { color: COLORS.gray, fontSize: 12.5, lineHeight: 18, fontWeight: "600", textAlign: "center" },
+  chatStarters: {
+    borderRadius: 22,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: "rgba(230,234,242,0.9)",
+    padding: 12,
+    gap: 8,
+    marginBottom: 4,
+  },
+  chatStartersTitle: { color: COLORS.blueDark, fontSize: 13.5, fontWeight: "900" },
+  chatStarter: {
+    minHeight: 42,
+    borderRadius: 15,
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  chatStarterText: { flex: 1, color: COLORS.blueDark, fontSize: 12.5, fontWeight: "800" },
   messageWrap: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   messageWrapUser: { justifyContent: "flex-end" },
   messageWrapAssistant: { justifyContent: "flex-start" },
@@ -986,7 +1119,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  bubble: { maxWidth: "86%", borderRadius: 18, padding: 13, gap: 10 },
+  bubble: { maxWidth: "87%", borderRadius: 22, padding: 14, gap: 10 },
   assistantBubble: {
     backgroundColor: COLORS.white,
     borderWidth: 1,
@@ -997,7 +1130,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.blueDark,
     borderBottomRightRadius: 6,
   },
-  messageText: { color: COLORS.blueDark, fontSize: 14, lineHeight: 21, fontWeight: "500" },
+  messageText: { color: COLORS.blueDark, fontSize: 14.5, lineHeight: 22, fontWeight: "500" },
   userMessageText: { color: COLORS.white },
   quickReplies: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   quickReply: {
@@ -1100,8 +1233,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    paddingTop: 10,
-    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingHorizontal: 14,
   },
   inputBox: {
     width: "100%",
@@ -1109,8 +1242,8 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     minHeight: 54,
     maxHeight: 116,
-    borderRadius: 18,
-    backgroundColor: COLORS.grayLight,
+    borderRadius: 22,
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: COLORS.border,
     flexDirection: "row",
@@ -1130,38 +1263,12 @@ const styles = StyleSheet.create({
     maxHeight: 92,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 16,
     backgroundColor: COLORS.blueDark,
     alignItems: "center",
     justifyContent: "center",
   },
   sendButtonDisabled: { opacity: 0.45 },
-  guidanceNav: {
-    width: "100%",
-    maxWidth: 720,
-    alignSelf: "center",
-    minHeight: 70,
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: 8,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  navItem: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
-  },
-  navItemActive: {
-    backgroundColor: COLORS.goldSoft,
-  },
-  navText: { color: COLORS.gray, fontSize: 10.5, fontWeight: "800" },
-  navTextActive: { color: COLORS.blueDark },
 });

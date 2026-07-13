@@ -8,6 +8,7 @@ import {
   saveAdminPrayer,
 } from "@/src/services/adminPrayerSupabase";
 import { supabase } from "@/supabaseClient";
+import { notifyUsersFromAdmin } from "@/src/services/pushNotifications";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
@@ -15,7 +16,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Pressable,
   ScrollView,
   StatusBar,
@@ -28,7 +28,6 @@ import {
 import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const { width } = Dimensions.get('window');
 const BOOK_NAMES = Object.keys(BIBLE);
 
 type VerseSuggestion = {
@@ -72,9 +71,8 @@ export default function AdminPrayerMessagePage() {
   const [verseReference, setVerseReference] = useState("");
   const [verseText, setVerseText] = useState("");
   const [content, setContent] = useState("");
-  const [status, setStatus] = useState<AdminPrayerStatus>("draft");
   const [prayers, setPrayers] = useState<AdminPrayerRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showVerseSuggestions, setShowVerseSuggestions] = useState(false);
 
@@ -144,14 +142,14 @@ export default function AdminPrayerMessagePage() {
 
   function resetForm() {
     setPrayerId(null); setTitle(""); setVerseReference("");
-    setVerseText(""); setContent(""); setStatus("draft");
+    setVerseText(""); setContent("");
     setShowVerseSuggestions(false);
   }
 
   function hydrateForm(record: AdminPrayerRecord) {
     setPrayerId(record.id); setTitle(record.title);
     setVerseReference(record.verseReference); setVerseText(record.verseText);
-    setContent(record.content); setStatus(record.status);
+    setContent(record.content);
     setShowVerseSuggestions(false);
   }
 
@@ -201,6 +199,15 @@ export default function AdminPrayerMessagePage() {
         verseReference: cleanRef, verseText: cleanText,
         bookId: "", chapter: 0, verseNumber: 0, status: nextStatus,
       });
+
+      if (nextStatus === "published") {
+        notifyUsersFromAdmin({
+          title: "Nouvelle prière Kabod",
+          body: cleanTitle,
+          targetScope: "all",
+          data: { type: "admin_prayer", route: "/priere/priere" },
+        }).catch((error) => console.warn("Notification prière failed", error));
+      }
 
       resetForm(); await loadPage();
       Alert.alert(nextStatus === "published" ? "Prière publiée" : "Brouillon enregistré");
