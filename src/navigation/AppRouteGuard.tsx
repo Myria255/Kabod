@@ -8,7 +8,9 @@ export function AppRouteGuard({ children }: { children: React.ReactNode }) {
   if (loading) return null;
 
   const rootSegment = segments[0] as string | undefined;
+  const nestedSegment = segments[1] as string | undefined;
   const isAuthRoute = rootSegment === "(auth)";
+  const isPasswordResetRoute = isAuthRoute && nestedSegment === "reset-password";
   const isAdminRoute = rootSegment === "admin-space" || rootSegment === "admin";
   const isEntryRoute = rootSegment === undefined || rootSegment === "index";
   const isPublicLegalRoute = rootSegment === "legal";
@@ -17,7 +19,7 @@ export function AppRouteGuard({ children }: { children: React.ReactNode }) {
     return <Redirect href="/(auth)/login" />;
   }
 
-  if (isAuthenticated && isAuthRoute) {
+  if (isAuthenticated && isAuthRoute && !isPasswordResetRoute) {
     return <Redirect href={user?.isAdmin ? "/admin-space" : "/(tabs)"} />;
   }
 

@@ -1,5 +1,4 @@
 import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
 import { supabase } from "@/supabaseClient";
@@ -21,8 +20,24 @@ function getProjectId() {
   );
 }
 
+function isExpoGoAndroid() {
+  return Platform.OS === "android" && Constants.appOwnership === "expo";
+}
+
+async function getExpoNotificationsModule(): Promise<any | null> {
+  if (Platform.OS === "web" || isExpoGoAndroid()) return null;
+
+  try {
+    return await import("expo-notifications");
+  } catch {
+    return null;
+  }
+}
+
 export async function registerCurrentDeviceForPushNotifications(userId: string): Promise<string | null> {
   if (Platform.OS === "web" || Constants.isDevice === false) return null;
+  const Notifications = await getExpoNotificationsModule();
+  if (!Notifications) return null;
 
   const current = await Notifications.getPermissionsAsync();
   let granted = current.granted;

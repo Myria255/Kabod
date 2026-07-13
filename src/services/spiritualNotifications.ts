@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 export type SpiritualReminderId = "dailyVerse" | "morningMeditation" | "prayerReminder" | "faithChallenge";
@@ -65,10 +66,15 @@ export const DEFAULT_SPIRITUAL_REMINDERS: SpiritualNotificationSettings = {
 
 type ScheduleIds = Partial<Record<SpiritualReminderId, string>>;
 
-function getExpoNotificationsModule(): any | null {
+function isExpoGoAndroid() {
+  return Platform.OS === "android" && Constants.appOwnership === "expo";
+}
+
+async function getExpoNotificationsModule(): Promise<any | null> {
+  if (Platform.OS === "web" || isExpoGoAndroid()) return null;
+
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require("expo-notifications");
+    return await import("expo-notifications");
   } catch {
     return null;
   }
@@ -104,7 +110,7 @@ export function formatReminderTime(hour: number, minute: number) {
 }
 
 export async function configureSpiritualNotifications() {
-  const Notifications = getExpoNotificationsModule();
+  const Notifications = await getExpoNotificationsModule();
   if (!Notifications || Platform.OS === "web") return false;
 
   Notifications.setNotificationHandler?.({
@@ -147,7 +153,7 @@ export async function saveSpiritualNotificationSettings(settings: SpiritualNotif
 
 export async function ensureSpiritualNotificationPermission(): Promise<boolean> {
   if (Platform.OS === "web") return false;
-  const Notifications = getExpoNotificationsModule();
+  const Notifications = await getExpoNotificationsModule();
   if (!Notifications) return false;
 
   await configureSpiritualNotifications();
@@ -162,7 +168,7 @@ export async function ensureSpiritualNotificationPermission(): Promise<boolean> 
 }
 
 export async function cancelSpiritualReminder(id: SpiritualReminderId) {
-  const Notifications = getExpoNotificationsModule();
+  const Notifications = await getExpoNotificationsModule();
   if (!Notifications) return;
 
   const ids = await getScheduleIds();
@@ -175,7 +181,7 @@ export async function cancelSpiritualReminder(id: SpiritualReminderId) {
 }
 
 export async function scheduleSpiritualReminder(reminder: SpiritualReminder): Promise<boolean> {
-  const Notifications = getExpoNotificationsModule();
+  const Notifications = await getExpoNotificationsModule();
   if (!Notifications || Platform.OS === "web") return false;
 
   const granted = await ensureSpiritualNotificationPermission();

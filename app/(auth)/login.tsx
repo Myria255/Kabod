@@ -1,104 +1,106 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { Link, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { getDefaultRouteForUser } from "@/src/services/authRedirect";
+import { getPasswordResetRedirectUrl, signInWithGoogle } from "@/src/services/authOAuth";
+import { getSupabaseErrorMessage, hasSupabaseConfig, supabase } from "@/supabaseClient";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  Alert,
   Animated,
   Image,
-  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
-import { getSupabaseErrorMessage, hasSupabaseConfig, supabase } from '../../supabaseClient';
-import { getDefaultRouteForUser } from '@/src/services/authRedirect';
-import { Ionicons } from '@expo/vector-icons';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-// Palette de couleurs Ultra-Premium
 const COLORS = {
   white: "#FFFFFF",
+  cream: "#FAF7EF",
+  navy: "#0F172A",
   gold: "#D4AF37",
-  goldLight: "#F3D060",
-  deepBlue: "#0F172A",
-  grayText: "#E2E8F0",
-  glass: "rgba(255, 255, 255, 0.12)",
-  glassBorder: "rgba(255, 255, 255, 0.25)",
+  goldSoft: "#F8EFCB",
+  text: "#111827",
+  muted: "#667085",
+  border: "#E7E2D4",
+  input: "#FFFCF6",
 };
+
+function AuthField({
+  label,
+  icon,
+  value,
+  onChangeText,
+  placeholder,
+  secureTextEntry,
+  keyboardType,
+  right,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  secureTextEntry?: boolean;
+  keyboardType?: "default" | "email-address";
+  right?: ReactNode;
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.inputBox}>
+        <Ionicons name={icon} size={19} color={COLORS.gold} />
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#A19A8D"
+          secureTextEntry={secureTextEntry}
+          keyboardType={keyboardType}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={styles.input}
+        />
+        {right}
+      </View>
+    </View>
+  );
+}
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { width, height } = useWindowDimensions();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [language, setLanguage] = useState<'fr' | 'en'>('fr');
   const [isLoading, setIsLoading] = useState(false);
 
-  const formSlideAnim = useRef(new Animated.Value(20)).current;
-  const formFadeAnim = useRef(new Animated.Value(0)).current;
-
-  const texts = {
-    fr: {
-      languageLabel: 'FR',
-      welcome: 'Connexion',
-      subtitle: 'Entrez dans la présence de Dieu',
-      email: 'Email',
-      password: 'Mot de passe',
-      login: 'SE CONNECTER',
-      noAccount: 'Pas encore membre ? S\'inscrire',
-      forgotPassword: 'Mot de passe oublié ?',
-    },
-    en: {
-      languageLabel: 'EN',
-      welcome: 'Sign In',
-      subtitle: 'Enter the presence of God',
-      email: 'Email',
-      password: 'Password',
-      login: 'SIGN IN',
-      noAccount: 'Not a member? Sign up',
-      forgotPassword: 'Forgot password?',
-    },
-  };
-
-  const t = texts[language];
+  const fade = useRef(new Animated.Value(0)).current;
+  const slide = useRef(new Animated.Value(12)).current;
+  const isSmallScreen = width < 380;
+  const isShortScreen = height < 700;
+  const canSubmit = email.trim().length > 0 && password.trim().length > 0 && !isLoading;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(formFadeAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
-      Animated.timing(formSlideAnim, { toValue: 0, duration: 1000, useNativeDriver: true }),
+      Animated.timing(fade, { toValue: 1, duration: 420, useNativeDriver: true }),
+      Animated.spring(slide, { toValue: 0, damping: 18, stiffness: 130, useNativeDriver: true }),
     ]).start();
-  }, [formFadeAnim, formSlideAnim]);
+  }, [fade, slide]);
 
-  const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) return;
-
-    if (!hasSupabaseConfig) {
-      alert(getSupabaseErrorMessage(new Error("Configuration Supabase absente.")));
-      return;
-    }
-
-    setIsLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    setIsLoading(false);
-    if (error) alert(getSupabaseErrorMessage(error));
-    else {
-      const nextRoute = await getDefaultRouteForUser(data.user.id);
-      router.replace(nextRoute);
-    }
-  };
-
-  const handleForgotPassword = async () => {
+  async function handleLogin() {
     const cleanEmail = email.trim().toLowerCase();
-
-    if (!cleanEmail) {
-      Alert.alert("Email requis", "Entrez votre adresse email avant de demander la réinitialisation.");
+    if (!cleanEmail || !password.trim()) {
+      Alert.alert("Connexion", "Renseignez votre email et votre mot de passe.");
       return;
     }
 
@@ -107,226 +109,245 @@ export default function LoginScreen() {
       return;
     }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+    setIsLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password,
+    });
+    setIsLoading(false);
 
+    if (error) {
+      Alert.alert("Connexion impossible", getSupabaseErrorMessage(error));
+      return;
+    }
+
+    if (data.user) {
+      const nextRoute = await getDefaultRouteForUser(data.user.id);
+      router.replace(nextRoute);
+    }
+  }
+
+  async function handleForgotPassword() {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      Alert.alert("Email requis", "Entrez votre email avant de demander la réinitialisation.");
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: getPasswordResetRedirectUrl(),
+    });
     if (error) {
       Alert.alert("Réinitialisation impossible", getSupabaseErrorMessage(error));
       return;
     }
 
     Alert.alert("Email envoyé", "Si ce compte existe, un lien de réinitialisation vient d’être envoyé.");
-  };
+  }
+
+  async function handleGoogleLogin() {
+    try {
+      const nextRoute = await signInWithGoogle();
+      if (nextRoute) {
+        router.replace(nextRoute);
+      }
+    } catch (error) {
+      Alert.alert("Connexion Google impossible", getSupabaseErrorMessage(error));
+    }
+  }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.root}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
-      {/* Background Section avec SEULEMENT le premier fond local */}
-      <View style={styles.backgroundContainer}>
-        <Image 
-          source={require('../../assets/images/fond1.png')} 
-          style={styles.backgroundImage} 
-          resizeMode="cover"
-        />
-        <LinearGradient 
-          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.8)']} 
-          style={styles.backgroundOverlay} 
-        />
-      </View>
+      <Image
+        source={require("../../assets/images/fond1.png")}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
+      <LinearGradient
+        colors={["rgba(15,23,42,0.18)", "rgba(255,255,255,0.40)", "rgba(255,252,246,0.96)"]}
+        locations={[0, 0.42, 0.78]}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.overlay}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Top Bar */}
-          <View style={styles.topBar}>
-            <TouchableOpacity 
-              onPress={() => setLanguage(language === 'fr' ? 'en' : 'fr')}
-              style={styles.langButton}
-            >
-              <Text style={styles.langText}>{t.languageLabel}</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.logoCircle}>
-              <Image
-                source={require('../../assets/images/kabod relook-04.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            </View>
-          </View>
-
-          {/* Form Card Centrée */}
-          <Animated.View 
-            style={[
-              styles.formCard, 
-              { opacity: formFadeAnim, transform: [{ translateY: formSlideAnim }] }
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.scroll,
+              {
+                paddingHorizontal: isSmallScreen ? 16 : 22,
+                paddingTop: isShortScreen ? 4 : 10,
+                paddingBottom: isShortScreen ? 22 : 34,
+                justifyContent: isShortScreen ? "flex-start" : "center",
+              },
             ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.headerText}>
-              <Text style={styles.title}>{t.welcome}</Text>
-              <View style={styles.titleUnderline} />
-              <Text style={styles.subtitle}>{t.subtitle}</Text>
-            </View>
-
-            <View style={styles.inputArea}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>{t.email.toUpperCase()}</Text>
-                <View style={styles.inputBox}>
-                  <Ionicons name="mail-outline" size={20} color={COLORS.gold} style={styles.icon} />
-                  <TextInput
-                    placeholder={t.email}
-                    value={email}
-                    onChangeText={setEmail}
-                    style={styles.input}
-                    placeholderTextColor="rgba(255,255,255,0.4)"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
+            <Animated.View style={[styles.content, { opacity: fade, transform: [{ translateY: slide }] }]}>
+              <View style={[styles.logoWrap, isShortScreen && styles.logoWrapCompact]}>
+                <View style={[styles.logoFrame, isSmallScreen && styles.logoFrameSmall]}>
+                  <Image
+                    source={require("../../assets/images/kabod relook-04.png")}
+                    style={styles.logo}
+                    resizeMode="contain"
                   />
                 </View>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>{t.password.toUpperCase()}</Text>
-                <View style={styles.inputBox}>
-                  <Ionicons name="lock-closed-outline" size={20} color={COLORS.gold} style={styles.icon} />
-                  <TextInput
-                    placeholder={t.password}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    style={styles.input}
-                    placeholderTextColor="rgba(255,255,255,0.4)"
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Ionicons 
-                      name={showPassword ? "eye-outline" : "eye-off-outline"} 
-                      size={20} 
-                      color="rgba(255,255,255,0.5)" 
-                    />
+              <View style={[styles.card, isSmallScreen && styles.cardSmall]}>
+                <View style={styles.header}>
+                  <Text style={[styles.title, isSmallScreen && styles.titleSmall]}>Heureux de te revoir</Text>
+                  <Text style={styles.subtitle}>Continuez votre marche avec Dieu.</Text>
+                </View>
+
+                <AuthField
+                  label="Email"
+                  icon="mail-outline"
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="votre@email.com"
+                  keyboardType="email-address"
+                />
+
+                <AuthField
+                  label="Mot de passe"
+                  icon="lock-closed-outline"
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Votre mot de passe"
+                  secureTextEntry={!showPassword}
+                  right={
+                    <TouchableOpacity onPress={() => setShowPassword((value) => !value)} hitSlop={10}>
+                      <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.muted} />
+                    </TouchableOpacity>
+                  }
+                />
+
+                <TouchableOpacity style={styles.forgotButton} onPress={handleForgotPassword}>
+                  <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
+                </TouchableOpacity>
+
+                <Pressable
+                  disabled={!canSubmit}
+                  onPress={handleLogin}
+                  style={({ pressed }) => [styles.primaryButton, (!canSubmit || pressed) && styles.buttonPressed]}
+                >
+                  <Text style={styles.primaryText}>{isLoading ? "Connexion..." : "Se connecter"}</Text>
+                  <Ionicons name="arrow-forward" size={18} color={COLORS.gold} />
+                </Pressable>
+
+                <Pressable style={({ pressed }) => [styles.googleButton, pressed && styles.buttonPressed]} onPress={handleGoogleLogin}>
+                  <Text style={styles.googleG}>G</Text>
+                  <Text style={styles.googleText}>Continuer avec Google</Text>
+                </Pressable>
+
+                <View style={styles.footerLink}>
+                  <Text style={styles.footerMuted}>Pas encore de compte ?</Text>
+                  <TouchableOpacity onPress={() => router.push("/(auth)/register" as any)}>
+                    <Text style={styles.footerAction}>S’inscrire</Text>
                   </TouchableOpacity>
                 </View>
               </View>
-            </View>
-
-            <TouchableOpacity style={styles.forgotBtn} onPress={handleForgotPassword}>
-              <Text style={styles.forgotText}>{t.forgotPassword}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              onPress={handleLogin} 
-              disabled={isLoading}
-              activeOpacity={0.85} 
-              style={styles.mainBtn}
-            >
-              <LinearGradient
-                colors={[COLORS.gold, "#B8860B"]}
-                style={styles.btnGradient}
-              >
-                <Text style={styles.btnText}>{isLoading ? '...' : t.login}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <Link href="/(auth)/register" asChild>
-              <TouchableOpacity style={styles.linkBtn}>
-                <Text style={styles.linkText}>{t.noAccount}</Text>
-              </TouchableOpacity>
-            </Link>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  backgroundContainer: { ...StyleSheet.absoluteFillObject },
-  backgroundImage: { width: '100%', height: '100%' },
-  backgroundOverlay: { ...StyleSheet.absoluteFillObject },
-  
-  overlay: { flex: 1 },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 30,
-    justifyContent: 'center',
-    paddingVertical: 50,
+  root: { flex: 1, backgroundColor: COLORS.navy },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
   },
-  
-  topBar: {
-    position: 'absolute',
-    top: 50,
-    left: 30,
-    right: 30,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  langButton: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  langText: { color: COLORS.white, fontWeight: '700', fontSize: 12 },
-  logoCircle: {
-    width: 50,
-    height: 50,
-    backgroundColor: COLORS.white,
-    borderRadius: 25,
+  safe: { flex: 1 },
+  flex: { flex: 1 },
+  scroll: { flexGrow: 1 },
+  content: { width: "100%", maxWidth: 500, alignSelf: "center" },
+  logoWrap: { alignItems: "center", marginBottom: 14 },
+  logoWrapCompact: { marginBottom: 8 },
+  logoFrame: {
+    width: 88,
+    height: 88,
+    borderRadius: 26,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 8,
-  },
-  logo: { width: '100%', height: '100%' },
-  
-  formCard: {
-    backgroundColor: COLORS.glass,
-    borderRadius: 35,
-    padding: 30,
-    width: '100%',
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    shadowColor: '#000',
+    borderColor: "rgba(255,255,255,0.95)",
+    shadowColor: COLORS.navy,
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
+    shadowOpacity: 0.14,
+    shadowRadius: 22,
+    elevation: 8,
+  },
+  logoFrameSmall: { width: 76, height: 76, borderRadius: 23, padding: 7 },
+  logo: { width: "100%", height: "100%" },
+  card: {
+    backgroundColor: "rgba(255,255,255,0.84)",
+    borderRadius: 30,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.navy,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.14,
+    shadowRadius: 28,
     elevation: 10,
+    gap: 16,
   },
-  headerText: { alignItems: 'center', marginBottom: 35 },
-  title: { color: COLORS.white, fontSize: 32, fontWeight: '900', letterSpacing: 2 },
-  titleUnderline: { width: 40, height: 3, backgroundColor: COLORS.gold, marginTop: 8, marginBottom: 12 },
-  subtitle: { color: COLORS.grayText, fontSize: 14, opacity: 0.8 },
-  
-  inputArea: { gap: 20 },
-  inputGroup: {},
-  label: { color: COLORS.gold, fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 8, opacity: 0.9 },
+  cardSmall: { borderRadius: 26, padding: 17, gap: 14 },
+  header: { marginBottom: 4, alignItems: "center" },
+  title: { color: COLORS.text, fontSize: 25, fontWeight: "900", letterSpacing: -0.4, textAlign: "center" },
+  titleSmall: { fontSize: 22 },
+  subtitle: { marginTop: 4, color: COLORS.muted, fontSize: 12.5, fontWeight: "600", lineHeight: 18, textAlign: "center" },
+  field: { gap: 7 },
+  label: { color: COLORS.navy, fontSize: 13, fontWeight: "900" },
   inputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1.5,
-    borderBottomColor: 'rgba(255,255,255,0.2)',
-    height: 55,
+    minHeight: 54,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
-  icon: { marginRight: 15 },
-  input: { 
-    flex: 1, 
-    color: COLORS.white, 
-    fontSize: 16, 
-    fontWeight: '500',
-    paddingVertical: 0,
-    paddingRight: 10,
+  input: { flex: 1, color: COLORS.text, fontSize: 15, fontWeight: "700", paddingVertical: 0 },
+  forgotButton: { alignSelf: "flex-end", marginTop: -4 },
+  forgotText: { color: COLORS.gold, fontSize: 13, fontWeight: "900" },
+  primaryButton: {
+    minHeight: 56,
+    borderRadius: 16,
+    backgroundColor: COLORS.navy,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
   },
-  
-  forgotBtn: { alignSelf: 'flex-end', marginTop: 15, marginBottom: 30 },
-  forgotText: { color: COLORS.white, fontSize: 12, opacity: 0.6 },
-  
-  mainBtn: { borderRadius: 18, overflow: 'hidden' },
-  btnGradient: { paddingVertical: 18, alignItems: 'center' },
-  btnText: { color: COLORS.white, fontWeight: '900', letterSpacing: 2, fontSize: 16 },
-  
-  linkBtn: { marginTop: 25, alignItems: 'center' },
-  linkText: { color: COLORS.white, fontSize: 14, fontWeight: '600', opacity: 0.9 },
+  buttonPressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
+  primaryText: { color: COLORS.white, fontSize: 16, fontWeight: "900" },
+  googleButton: {
+    minHeight: 54,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  googleG: { color: "#4285F4", fontSize: 17, fontWeight: "900" },
+  googleText: { color: COLORS.navy, fontSize: 15, fontWeight: "900" },
+  footerLink: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 2, flexWrap: "wrap" },
+  footerMuted: { color: COLORS.muted, fontSize: 14, fontWeight: "700" },
+  footerAction: { color: COLORS.gold, fontSize: 14, fontWeight: "900" },
 });

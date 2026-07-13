@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 type NotificationPayload = {
@@ -5,10 +6,15 @@ type NotificationPayload = {
   body: string;
 };
 
-function getExpoNotificationsModule(): any | null {
+function isExpoGoAndroid() {
+  return Platform.OS === "android" && Constants.appOwnership === "expo";
+}
+
+async function getExpoNotificationsModule(): Promise<any | null> {
+  if (Platform.OS === "web" || isExpoGoAndroid()) return null;
+
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require("expo-notifications");
+    return await import("expo-notifications");
   } catch {
     return null;
   }
@@ -17,7 +23,7 @@ function getExpoNotificationsModule(): any | null {
 export async function ensureLocalNotificationPermission(): Promise<boolean> {
   if (Platform.OS === "web") return false;
 
-  const Notifications = getExpoNotificationsModule();
+  const Notifications = await getExpoNotificationsModule();
   if (!Notifications) return false;
 
   const current = await Notifications.getPermissionsAsync();
@@ -30,7 +36,7 @@ export async function ensureLocalNotificationPermission(): Promise<boolean> {
 }
 
 export async function sendImmediateLocalNotification(payload: NotificationPayload): Promise<boolean> {
-  const Notifications = getExpoNotificationsModule();
+  const Notifications = await getExpoNotificationsModule();
   if (!Notifications) return false;
 
   const granted = await ensureLocalNotificationPermission();
